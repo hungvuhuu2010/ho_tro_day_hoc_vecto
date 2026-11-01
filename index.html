@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ứng dụng hỗ trợ dạy học vectơ</title>
+    <!-- KaTeX CSS -->
+	<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+	<!-- KaTeX JS -->
+	<script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+	<!-- KaTeX Auto-render -->
+	<script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"></script>
+
+	<script>
+		document.addEventListener("DOMContentLoaded", function() {
+			// Cấu hình tự động nhận diện dấu $ đơn và hiển thị KaTeX toàn trang
+			if (typeof renderMathInElement !== 'undefined') {
+				renderMathInElement(document.body, {
+					delimiters: [
+						{left: "$$", right: "$$", display: true},
+						{left: "$", right: "$", display: false}
+					],
+					throwOnError: false
+				});
+			}
+		});
+	</script>
+	
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Header -->
+    <header class="app-header">
+        <div class="header-titles">
+            <h1>Ứng dụng hỗ trợ dạy học vectơ</h1>
+            <span class="separator">|</span>
+            <p class="author">Tác giả: Vũ Hữu Hùng, trường THPT Nguyễn Trãi - Thường Tín</p>
+        </div>
+        <div class="header-tools">
+            <button id="btn-toggle-coords" class="tool-btn icon-only" title="Bật/Tắt hệ tọa độ (dùng khi dạy học tọa độ)">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><line x1="12" y1="2" x2="12" y2="22"></line><line x1="2" y1="12" x2="22" y2="12"></line></svg>
+            </button>
+            <button id="btn-copy-svg" class="tool-btn icon-only" title="Chụp ảnh mặt phẳng SVG vào Clipboard để dán vào Word">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+            </button>
+            <button id="btn-fullscreen" class="tool-btn icon-only" title="Toàn màn hình">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path></svg>
+            </button>
+            <button id="btn-help" class="tool-btn icon-only" title="Hướng dẫn sử dụng">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Content Layout (1/4 - 3/4) -->
+    <div class="app-container">
+        <!-- Left Panel (1/4) -->
+        <aside class="control-panel">
+            <div class="tabs">
+                <button class="tab-btn active" data-tab="practice">Luyện tập</button>
+                <button class="tab-btn" data-tab="challenge">Thử thách Điểm 10</button>
+            </div>
+
+            <!-- Tab 1: Luyện tập -->
+            <div id="tab-practice" class="tab-content active">
+                <div class="panel-section">
+                    <h3>Chế độ luyện tập</h3>
+                    <div class="mode-selector">
+						<button class="mode-btn active" data-mode="sum">Tổng: $\\vec{u} = \\vec{a} + \\vec{b}$</button>
+						<button class="mode-btn" data-mode="diff">Hiệu: $\\vec{u} = \\vec{a} - \\vec{b}$</button>
+					</div>
+                </div>
+
+                <div class="panel-section">
+                    <button id="btn-new-practice" class="primary-btn">Bài mới</button>
+                </div>
+
+                <div class="panel-section instruction-box">
+                    <h4>Yêu cầu:</h4>
+                    <p id="practice-instruction">Hãy chấm điểm để vẽ vectơ $\\vec{a}$, vectơ $\\vec{b}$ và vectơ tổng $\\vec{a} +\\vec{b}$ trên lưới ô vuông.</p>
+                    <p class="hint-text">💡 Kích đúp vào vectơ để xóa nếu vẽ sai.</p>
+                </div>
+
+                <div class="panel-section">
+                    <button id="btn-check-practice" class="success-btn">Kiểm tra kết quả</button>
+                    <div id="practice-feedback" class="feedback-msg"></div>
+                </div>
+            </div>
+
+            <!-- Tab 2: Thử thách Điểm 10 -->
+            <div id="tab-challenge" class="tab-content">
+                <!-- Ghi danh -->
+                <div id="challenge-login" class="panel-section">
+                    <h3>Ghi danh Thử thách</h3>
+                    <form id="form-login">
+                        <div class="form-group">
+                            <label for="student-name">Họ và tên:</label>
+                            <input type="text" id="student-name" required placeholder="Nhập tên học sinh...">
+                        </div>
+                        <div class="form-group">
+                            <label for="student-class">Lớp:</label>
+                            <input type="text" id="student-class" required placeholder="Ví dụ: 10A1...">
+                        </div>
+                        <button type="submit" class="primary-btn">Bắt đầu thử thách</button>
+                    </form>
+                </div>
+
+                <!-- Khu vực thi đấu -->
+                <div id="challenge-workspace" class="panel-section" style="display: none;">
+                    <div class="student-info-card">
+                        <p>👤 <strong>Học sinh:</strong> <span id="disp-name">--</span></p>
+                        <p>🏫 <strong>Lớp:</strong> <span id="disp-class">--</span></p>
+                        <div class="stats-row">
+                            <span>⭐ Điểm: <strong id="disp-score">0</strong></span>
+                            <span>📝 Đã làm: <strong id="disp-count">0</strong> câu</span>
+                        </div>
+                        <button id="btn-logout" class="link-btn">Đổi học sinh</button>
+                    </div>
+
+                    <div class="challenge-task-box">
+                        <h4 id="challenge-title">Thử thách: Tổng vectơ</h4>
+                        <p id="challenge-instruction">Vẽ vectơ tổng của $\\vec{a}$ và $\\vec{b}$.</p>
+                    </div>
+
+                    <button id="btn-check-challenge" class="success-btn">Nộp bài (Kiểm tra)</button>
+                    <div id="challenge-feedback" class="feedback-msg"></div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Right Workspace (3/4) -->
+        <main class="workspace" id="workspace-container">
+            <div class="toolbar-overlay">
+                <div class="zoom-controls">
+                    <button id="btn-zoom-in" title="Phóng to">+</button>
+                    <button id="btn-zoom-out" title="Thu nhỏ">-</button>
+                    <button id="btn-zoom-reset" title="Mặc định">1:1</button>
+                </div>
+            </div>
+            
+            <svg id="vector-svg" width="100%" height="100%">
+                <defs>
+					<marker id="arrow-a" markerWidth="6" markerHeight="6" refX="4" refY="2" orient="auto" markerUnits="strokeWidth">
+						<path d="M0,0 L0,4 L6,2 z" fill="#2563eb"></path>
+					</marker>
+					<marker id="arrow-b" markerWidth="6" markerHeight="6" refX="4" refY="2" orient="auto" markerUnits="strokeWidth">
+						<path d="M0,0 L0,4 L6,2 z" fill="#ea580c"></path>
+					</marker>
+					<marker id="arrow-user" markerWidth="6" markerHeight="6" refX="4" refY="2" orient="auto" markerUnits="strokeWidth">
+						<path d="M0,0 L0,4 L6,2 z" fill="#16a34a"></path>
+					</marker>
+					<marker id="arrow-temp" markerWidth="6" markerHeight="6" refX="4" refY="2" orient="auto" markerUnits="strokeWidth">
+						<path d="M0,0 L0,4 L6,2 z" fill="#9333ea"></path>
+					</marker>
+				</defs>
+                <g id="viewport">
+                    <g id="grid-group"></g>
+                    <g id="elements-group"></g>
+                </g>
+            </svg>
+        </main>
+    </div>
+
+    <!-- Help Modal -->
+    <div id="help-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-modal">&times;</span>
+            <h2>Hướng dẫn sử dụng ứng dụng</h2>
+            <ul>
+                <li><strong>Di chuyển lưới (Pan):</strong> Nhấn giữ chuột phải hoặc giữ phím Shift kết hợp kéo chuột trái trên vùng lưới.</li>
+                <li><strong>Phóng to / Thu nhỏ (Zoom):</strong> Dùng con lăn chuột trên vùng lưới hoặc các nút góc phải.</li>
+                <li><strong>Vẽ vectơ:</strong> Click điểm đầu, sau đó click điểm cuối. Điểm tự động bắt dính vào mắt lưới ô vuông.</li>
+                <li><strong>Xóa đối tượng:</strong> Kích đúp (Double-click) vào vectơ học sinh vẽ để xóa.</li>
+                <li><strong>Nút bật tọa độ (góc trên):</strong> Dùng khi giáo viên muốn hiển thị hệ trục tọa độ và tọa độ các điểm để dạy học hình học tọa độ.</li>
+                <li><strong>Sao chép ảnh:</strong> Bấm icon máy ảnh ở góc trên để chụp ảnh mặt phẳng lưới và copy vào Clipboard, dán trực tiếp vào Word.</li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- Canvas ẩn phục vụ xuất ảnh -->
+    <canvas id="export-canvas" style="display:none;"></canvas>
+
+    <script src="script.js"></script>
+</body>
+</html>
