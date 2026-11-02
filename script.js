@@ -237,7 +237,6 @@ document.addEventListener('DOMContentLoaded', () => {
             renderElements();
         });
 		
-        btnCopySvg.addEventListener('click', copySvgImageToClipboard);
         btnFullscreen.addEventListener('click', toggleFullscreen);
         btnHelp.addEventListener('click', () => helpModal.style.display = 'flex');
         closeModal.addEventListener('click', () => helpModal.style.display = 'none');
@@ -553,18 +552,37 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function updatePracticeInstructionText() {
         if (practiceMode === 'sum') {
-            practiceInstruction.innerHTML = `Hãy dựng và vẽ vectơ tổng $\\vec{u} = \\vec{a} + \\vec{b}$ xuất phát từ điểm gốc của $\\vec{a}$ đến điểm cuối của $\\vec{b}$.`;
+            practiceInstruction.innerHTML = `Hãy dựng và vẽ vectơ tổng $\\vec{u} = \\vec{a} + \\vec{b}$.`;
         } else {
             practiceInstruction.innerHTML = `Hãy dựng và vẽ vectơ hiệu $\\vec{u} = \\vec{a} - \\vec{b}$.`;
         }
+        
         modeBtns.forEach(b => {
-            if (b.getAttribute('data-mode') === practiceMode) {
+            const mode = b.getAttribute('data-mode');
+            if (mode === 'sum') {
+                b.innerHTML = `Tổng: $\\vec{u} = \\vec{a} + \\vec{b}$`;
+            } else {
+                b.innerHTML = `Hiệu: $\\vec{u} = \\vec{a} - \\vec{b}$`;
+            }
+
+            if (mode === practiceMode) {
                 b.classList.add('active');
             } else {
                 b.classList.remove('active');
             }
         });
-        if (window.renderMathInElement) renderMathInElement(practiceInstruction);
+
+        // Bắt buộc gọi renderMathInElement cho cả hộp hướng dẫn và các nút bấm chế độ
+        if (typeof renderMathInElement !== 'undefined') {
+            renderMathInElement(practiceInstruction, {
+                delimiters: [{left: "$", right: "$", display: false}]
+            });
+            modeBtns.forEach(b => {
+                renderMathInElement(b, {
+                    delimiters: [{left: "$", right: "$", display: false}]
+                });
+            });
+        }
     }
 
     function resetPractice() {
@@ -841,43 +859,6 @@ document.addEventListener('DOMContentLoaded', () => {
         setTimeout(() => {
             startNewChallenge();
         }, 1500);
-    }
-
-    function copySvgImageToClipboard() {
-        const svgElement = svg;
-        const svgRect = svgElement.getBoundingClientRect();
-        
-        const serializer = new XMLSerializer();
-        const svgString = serializer.serializeToString(svgElement);
-        const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
-        const URL = window.URL || window.webkitURL || window;
-        const blobURL = URL.createObjectURL(svgBlob);
-
-        const image = new Image();
-        image.onload = () => {
-            exportCanvas.width = svgRect.width * 2;
-            exportCanvas.height = svgRect.height * 2;
-            const context = exportCanvas.getContext('2d');
-            context.fillStyle = '#ffffff';
-            context.fillRect(0, 0, exportCanvas.width, exportCanvas.height);
-            context.scale(2, 2);
-            context.drawImage(image, 0, 0, svgRect.width, svgRect.height);
-
-            exportCanvas.toBlob(blob => {
-                try {
-                    navigator.clipboard.write([
-                        new ClipboardItem({ 'image/png': blob })
-                    ]).then(() => {
-                        alert('✅ Đã chụp ảnh mặt phẳng lưới và sao chép vào Clipboard! Bạn có thể dán (Ctrl+V) trực tiếp vào Microsoft Word.');
-                    }).catch(err => {
-                        fallbackDownload(blob);
-                    });
-                } catch (e) {
-                    fallbackDownload(blob);
-                }
-            }, 'image/png');
-        };
-        image.src = blobURL;
     }
 
     function fallbackDownload(blob) {
