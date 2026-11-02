@@ -55,6 +55,12 @@ document.addEventListener('DOMContentLoaded', () => {
     let isPanning = false;
     let startPanX = 0;
     let startPanY = 0;
+	
+	// Touch pan & zoom state
+    let touchMode = 'none'; // 'pan' hoặc 'zoom'
+    let lastTouchDistance = 0;
+    let initialTouchPanX = 0;
+    let initialTouchPanY = 0;
 
     // Grid settings
     const gridSize = 40; // pixels per grid unit
@@ -253,6 +259,11 @@ document.addEventListener('DOMContentLoaded', () => {
         btnZoomOut.addEventListener('click', () => { zoom = Math.max(zoom / 1.2, 0.4); updateTransform(); });
         btnZoomReset.addEventListener('click', () => { zoom = 1; panX = 0; panY = 0; updateTransform(); });
 
+		// Touch events for mobile/tablet support
+        svg.addEventListener('touchstart', onTouchStart, { passive: false });
+        svg.addEventListener('touchmove', onTouchMove, { passive: false });
+        svg.addEventListener('touchend', onTouchEnd);
+		
         // SVG Mouse interactions for Pan & Click to Draw
         svg.addEventListener('mousedown', onMouseDown);
         svg.addEventListener('mousemove', onMouseMove);
@@ -311,6 +322,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // SVG Click to Draw Points and Vectors (Snapping strictly to grid nodes)
     function onSvgClick(e) {
+		let hasMoved = false;
+
+		// Trong onTouchStart / onTouchMove, bật cờ hasMoved = true nếu ngón tay di chuyển vượt ngưỡng tối thiểu (ví dụ > 5 pixels):
+		// Hoặc kiểm tra trong onSvgClick:
+		
         if (isPanning || e.shiftKey || e.button === 2) return;
         const rect = svg.getBoundingClientRect();
         const clientX = e.clientX - rect.left;
@@ -1022,3 +1038,87 @@ document.addEventListener('DOMContentLoaded', () => {
     init();
 });
 
+	function getTouchDistance(touches) {
+        return Math.hypot(
+            touches[0].clientX - touches[1].clientX,
+            touches[0].clientY - touches[1].clientY
+        );
+    }
+
+    function onTouchStart(e) {
+        if (e.touches.length === 1) {
+            // 1 ngón tay: Chuẩn bị pan (hoặc chuẩn bị click điểm)
+            isPanning = true;
+            touchMode = 'pan';
+            startPanX = e.touches[0].clientX - panX;
+            startPanY = e.touches[0].clientY - panY;
+        } else if (e.touches.length === 2) {
+            // 2 ngón tay: Chuẩn bị pinch-zoom
+            isPanning = false;
+            touchMode = 'zoom';
+            lastTouchDistance = getTouchDistance(e.touches);
+            e.preventDefault();
+        }
+    }
+
+    function onTouchMove(e) {
+        if (touchMode === 'pan' && isPanning && e.touches.length === 1) {
+            panX = e.touches[0].clientX - startPanX;
+            panY = e.touches[0].clientY - startPanY;
+            updateTransform();
+            e.preventDefault();
+        } else if (touchMode === 'zoom' && e.touches.length === 2) {
+            // Xử lý phóng to / thu nhỏ bằng 2 ngón tay
+            e.preventDefault();
+            const currentDist = getTouchDistance(e.touches);
+            if (lastTouchDistance > 0) {
+                const zoomFactor = currentDist / lastTouchDistance;
+                const newZoom = Math.max(0.4, Math.min(3, zoom * zoomFactor));
+
+                // Tâm điểm giữa 2 ngón tay
+                const rect = svg.getBoundingClientRect();
+                const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2 - rect.left;
+                const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2 - rect.top;
+
+                panX = midX - (midX - panX) * (newZoom / zoom) - originX * (newZoom / zoom) + originX;
+                panY = midY - (midY - panY) * (newZoom / zoom) - originY * (newZoom / zoom) + originY;
+                zoom = newZoom;
+                updateTransform();
+            }
+            lastTouchDistance = currentDist;
+        }
+    }
+
+    function onTouchEnd(e) {
+        if (e.touches.length === 0) {
+            isPanning = false;
+            touchMode = 'none';
+        } else if (e.touches.length === 1) {
+            // Chuyển từ 2 ngón về 1 ngón thì cập nhật lại vị trí pan để tránh bị giật màn hình
+            touchMode = 'pan';
+            isPanning = true;
+            startPanX = e.touches[0].clientX - panX;
+            startPanY = e.touches[0].clientY - panY;
+        }
+    }
+	
+	
+	// Kiểm tra hướng màn hình khi thay đổi hoặc tải trang
+    function checkOrientation() {
+        const rotateWarning = document.getElementById('rotate-warning');
+        if (!rotateWarning) return;
+
+        // Nếu là thiết bị nhỏ và đang dọc (height > width)
+        if (window.innerWidth <= 900 && window.innerHeight > window.innerWidth) {
+            rotateWarning.style.display = 'flex';
+        } else {
+            rotateWarning.style.display = 'none';
+        }
+    }
+
+    // Lắng nghe sự kiện xoay màn hình
+    window.addEventListener('resize', checkOrientation);
+    window.addEventListener('orientationchange', checkOrientation);
+    
+    // Gọi ngay khi khởi chạy trong hàm init()
+    checkOrientation();
