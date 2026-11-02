@@ -707,10 +707,22 @@ document.addEventListener('DOMContentLoaded', () => {
     function checkPracticeResult() {
         const va = vectors.find(v => v.label === 'a');
         const vb = vectors.find(v => v.label === 'b');
+        if (!va || !vb) {
+            practiceFeedback.textContent = '❌ Không tìm thấy vectơ đề bài!';
+            practiceFeedback.style.color = '#dc2626';
+            return;
+        }
+
         const pa1 = points.find(p => p.id === va.startPointId);
         const pa2 = points.find(p => p.id === va.endPointId);
         const pb1 = points.find(p => p.id === vb.startPointId);
         const pb2 = points.find(p => p.id === vb.endPointId);
+
+        if (!pa1 || !pa2 || !pb1 || !pb2) {
+            practiceFeedback.textContent = '❌ Lỗi dữ liệu điểm của vectơ đề bài!';
+            practiceFeedback.style.color = '#dc2626';
+            return;
+        }
 
         const vecA = { x: pa2.x - pa1.x, y: pa2.y - pa1.y };
         const vecB = { x: pb2.x - pb1.x, y: pb2.y - pb1.y };
@@ -732,19 +744,33 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
+        // 1. Lấy ĐÚNG vectơ cuối cùng trong danh sách (vectơ vẽ sau cùng)
         const lastUserVec = userVectors[userVectors.length - 1];
+
+        // 2. Đổi màu vectơ chốt đáp án sang xanh thẫm (#15803d) để phân biệt trực quan
+        lastUserVec.color = '#15803d';
+        renderElements(); // Vẽ lại giao diện SVG để cập nhật màu sắc ngay lập tức
+
         const up1 = points.find(p => p.id === lastUserVec.startPointId);
         const up2 = points.find(p => p.id === lastUserVec.endPointId);
+
+        if (!up1 || !up2) {
+            practiceFeedback.textContent = '❌ Lỗi điểm của vectơ học sinh vẽ!';
+            practiceFeedback.style.color = '#dc2626';
+            return;
+        }
+
         const userDx = up2.x - up1.x;
         const userDy = up2.y - up1.y;
 
+        // 3. Xét điểm xuất phát và tọa độ của riêng vectơ cuối cùng này
         const correctOrigin = practiceMode === 'sum' ? (up1.x === pa1.x && up1.y === pa1.y) : true;
 
         if (userDx === targetDx && userDy === targetDy && correctOrigin) {
-            practiceFeedback.textContent = '🎉 Chính xác tuyệt đối! Bạn đã vẽ đúng vectơ.';
+            practiceFeedback.textContent = '🎉 Chính xác tuyệt đối! Vectơ cuối cùng bạn vẽ là đáp án đúng.';
             practiceFeedback.style.color = '#16a34a';
         } else {
-            practiceFeedback.textContent = '❌ Chưa chính xác. Hãy kiểm tra lại hướng, độ dài hoặc điểm xuất phát!';
+            practiceFeedback.textContent = '❌ Chưa chính xác. Vectơ cuối cùng bạn vẽ chưa đúng hướng, độ dài hoặc điểm xuất phát!';
             practiceFeedback.style.color = '#dc2626';
         }
     }
