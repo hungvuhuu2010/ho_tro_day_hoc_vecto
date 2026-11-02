@@ -32,8 +32,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const challengeInstruction = document.getElementById('challenge-instruction');
 
     // Header tools
-    const btnToggleCoords = document.getElementById('btn-toggle-coords'); // Thêm dòng này
-	const btnCopySvg = document.getElementById('btn-copy-svg');
+    const btnToggleCoords = document.getElementById('btn-toggle-coords');
+    const btnCopySvg = document.getElementById('btn-copy-svg');
     const btnFullscreen = document.getElementById('btn-fullscreen');
     const btnHelp = document.getElementById('btn-help');
     const helpModal = document.getElementById('help-modal');
@@ -56,11 +56,9 @@ document.addEventListener('DOMContentLoaded', () => {
     let startPanX = 0;
     let startPanY = 0;
 	
-	// Touch pan & zoom state
+    // Touch pan & zoom state
     let touchMode = 'none'; // 'pan' hoặc 'zoom'
     let lastTouchDistance = 0;
-    let initialTouchPanX = 0;
-    let initialTouchPanY = 0;
 
     // Grid settings
     const gridSize = 40; // pixels per grid unit
@@ -82,6 +80,7 @@ document.addEventListener('DOMContentLoaded', () => {
         initGrid();
         resetPractice();
         setupEventListeners();
+        checkOrientation();
     }
 
     function setupDimensions() {
@@ -98,7 +97,6 @@ document.addEventListener('DOMContentLoaded', () => {
         viewport.setAttribute('transform', `translate(${originX + panX}, ${originY + panY}) scale(${zoom})`);
     }
 
-
     // Grid rendering (Clean grid without coordinate axes or visible nodes)
     function initGrid() {
         gridGroup.innerHTML = '';
@@ -109,7 +107,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const startY = -h / 2;
         const endY = h / 2;
 
-        // Clean grid lines
         for (let x = startX; x <= endX; x += gridSize) {
             const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
             line.setAttribute('x1', x);
@@ -132,7 +129,6 @@ document.addEventListener('DOMContentLoaded', () => {
             gridGroup.appendChild(line);
         }
 
-        // Nếu bật chế độ tọa độ thì vẽ trục và số
         if (showCoordinates) {
             const xAxis = document.createElementNS('http://www.w3.org/2000/svg', 'line');
             xAxis.setAttribute('x1', startX);
@@ -182,7 +178,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Event listeners setup
     function setupEventListeners() {
-        // Tabs
         tabBtns.forEach(btn => {
             btn.addEventListener('click', () => {
                 tabBtns.forEach(b => b.classList.remove('active'));
@@ -197,7 +192,6 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         });
 
-        // Practice mode buttons
         modeBtns.forEach(btn => {
             btn.addEventListener('click', () => {
                 modeBtns.forEach(b => b.classList.remove('active'));
@@ -210,7 +204,6 @@ document.addEventListener('DOMContentLoaded', () => {
         btnNewPractice.addEventListener('click', resetPractice);
         btnCheckPractice.addEventListener('click', checkPracticeResult);
 
-        // Challenge login
         formLogin.addEventListener('submit', (e) => {
             e.preventDefault();
             student.name = document.getElementById('student-name').value.trim();
@@ -233,8 +226,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         btnCheckChallenge.addEventListener('click', checkChallengeResult);
 
-        // Header tool buttons
-        // Header tool buttons
         btnToggleCoords.addEventListener('click', () => {
             showCoordinates = !showCoordinates;
             if (showCoordinates) {
@@ -246,7 +237,7 @@ document.addEventListener('DOMContentLoaded', () => {
             renderElements();
         });
 		
-		btnCopySvg.addEventListener('click', copySvgImageToClipboard);
+        btnCopySvg.addEventListener('click', copySvgImageToClipboard);
         btnFullscreen.addEventListener('click', toggleFullscreen);
         btnHelp.addEventListener('click', () => helpModal.style.display = 'flex');
         closeModal.addEventListener('click', () => helpModal.style.display = 'none');
@@ -254,27 +245,100 @@ document.addEventListener('DOMContentLoaded', () => {
             if (e.target === helpModal) helpModal.style.display = 'none';
         });
 
-        // Zoom controls
         btnZoomIn.addEventListener('click', () => { zoom = Math.min(zoom * 1.2, 3); updateTransform(); });
         btnZoomOut.addEventListener('click', () => { zoom = Math.max(zoom / 1.2, 0.4); updateTransform(); });
         btnZoomReset.addEventListener('click', () => { zoom = 1; panX = 0; panY = 0; updateTransform(); });
 
-		// Touch events for mobile/tablet support
+        // Touch events for mobile/tablet support
         svg.addEventListener('touchstart', onTouchStart, { passive: false });
         svg.addEventListener('touchmove', onTouchMove, { passive: false });
         svg.addEventListener('touchend', onTouchEnd);
 		
-        // SVG Mouse interactions for Pan & Click to Draw
+        // SVG Mouse interactions
         svg.addEventListener('mousedown', onMouseDown);
         svg.addEventListener('mousemove', onMouseMove);
         svg.addEventListener('mouseup', onMouseUp);
         svg.addEventListener('wheel', onWheel, { passive: false });
         svg.addEventListener('click', onSvgClick);
+
+        // Screen orientation listener
+        window.addEventListener('resize', checkOrientation);
+        window.addEventListener('orientationchange', checkOrientation);
+    }
+
+    // Touch handlers
+    function getTouchDistance(touches) {
+        return Math.hypot(
+            touches[0].clientX - touches[1].clientX,
+            touches[0].clientY - touches[1].clientY
+        );
+    }
+
+    function onTouchStart(e) {
+        if (e.touches.length === 1) {
+            isPanning = true;
+            touchMode = 'pan';
+            startPanX = e.touches[0].clientX - panX;
+            startPanY = e.touches[0].clientY - panY;
+        } else if (e.touches.length === 2) {
+            isPanning = false;
+            touchMode = 'zoom';
+            lastTouchDistance = getTouchDistance(e.touches);
+            e.preventDefault();
+        }
+    }
+
+    function onTouchMove(e) {
+        if (touchMode === 'pan' && isPanning && e.touches.length === 1) {
+            panX = e.touches[0].clientX - startPanX;
+            panY = e.touches[0].clientY - startPanY;
+            updateTransform();
+            e.preventDefault();
+        } else if (touchMode === 'zoom' && e.touches.length === 2) {
+            e.preventDefault();
+            const currentDist = getTouchDistance(e.touches);
+            if (lastTouchDistance > 0) {
+                const zoomFactor = currentDist / lastTouchDistance;
+                const newZoom = Math.max(0.4, Math.min(3, zoom * zoomFactor));
+
+                const rect = svg.getBoundingClientRect();
+                const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2 - rect.left;
+                const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2 - rect.top;
+
+                panX = midX - (midX - panX) * (newZoom / zoom) - originX * (newZoom / zoom) + originX;
+                panY = midY - (midY - panY) * (newZoom / zoom) - originY * (newZoom / zoom) + originY;
+                zoom = newZoom;
+                updateTransform();
+            }
+            lastTouchDistance = currentDist;
+        }
+    }
+
+    function onTouchEnd(e) {
+        if (e.touches.length === 0) {
+            isPanning = false;
+            touchMode = 'none';
+        } else if (e.touches.length === 1) {
+            touchMode = 'pan';
+            isPanning = true;
+            startPanX = e.touches[0].clientX - panX;
+            startPanY = e.touches[0].clientY - panY;
+        }
+    }
+
+    function checkOrientation() {
+        const rotateWarning = document.getElementById('rotate-warning');
+        if (!rotateWarning) return;
+        if (window.innerWidth <= 900 && window.innerHeight > window.innerWidth) {
+            rotateWarning.style.display = 'flex';
+        } else {
+            rotateWarning.style.display = 'none';
+        }
     }
 
     // Pan & Zoom handlers
     function onMouseDown(e) {
-        if (e.button === 2 || e.shiftKey || e.button === 0) { // Cho phép cả click trái khi giữ Shift hoặc click phải để Pan
+        if (e.button === 2 || e.shiftKey || e.button === 0) {
             isPanning = true;
             startPanX = e.clientX - panX;
             startPanY = e.clientY - panY;
@@ -283,15 +347,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function onMouseMove(e) {
-        const rect = svg.getBoundingClientRect();
-        const clientX = e.clientX - rect.left;
-        const clientY = e.clientY - rect.top;
-        
-        const svgX = (clientX - originX - panX) / zoom;
-        const svgY = (clientY - originY - panY) / zoom;
-        const gridX = Math.round(svgX / gridSize);
-        const gridY = Math.round(-svgY / gridSize);
-
         if (isPanning) {
             panX = e.clientX - startPanX;
             panY = e.clientY - startPanY;
@@ -320,13 +375,8 @@ document.addEventListener('DOMContentLoaded', () => {
         updateTransform();
     }
 
-    // SVG Click to Draw Points and Vectors (Snapping strictly to grid nodes)
+    // SVG Click to Draw Points and Vectors
     function onSvgClick(e) {
-		let hasMoved = false;
-
-		// Trong onTouchStart / onTouchMove, bật cờ hasMoved = true nếu ngón tay di chuyển vượt ngưỡng tối thiểu (ví dụ > 5 pixels):
-		// Hoặc kiểm tra trong onSvgClick:
-		
         if (isPanning || e.shiftKey || e.button === 2) return;
         const rect = svg.getBoundingClientRect();
         const clientX = e.clientX - rect.left;
@@ -376,7 +426,6 @@ document.addEventListener('DOMContentLoaded', () => {
         renderElements();
     }
 
-    // Double click to delete user vector
     svg.addEventListener('dblclick', (e) => {
         const target = e.target;
         const id = target.getAttribute('data-id');
@@ -386,7 +435,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const vec = vectors.find(v => v.id === id);
             if (vec && vec.type === 'user') {
                 vectors = vectors.filter(v => v.id !== id);
-                // Clean up orphaned points if needed
                 cleanupUnusedPoints();
             }
         }
@@ -402,11 +450,9 @@ document.addEventListener('DOMContentLoaded', () => {
         points = points.filter(p => usedPointIds.has(p.id));
     }
 
-	// Render SVG Elements (Không hiện nút mặc định, chỉ hiện vectơ và nhãn chuẩn KaTeX)
     function renderElements() {
         elementsGroup.innerHTML = '';
 
-        // Draw vectors
         vectors.forEach(v => {
             const startP = points.find(p => p.id === v.startPointId);
             const endP = points.find(p => p.id === v.endPointId);
@@ -436,10 +482,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             elementsGroup.appendChild(line);
 
-            // Label trên mặt phẳng SVG cho từng vectơ (đặt đúng bên trong vòng lặp)
-            // Label trên mặt phẳng SVG sử dụng foreignObject và KaTeX
             if (v.label) {
-                // 1. Tạo thẻ foreignObject của SVG để chứa HTML/KaTeX
                 const foreignObject = document.createElementNS('http://www.w3.org/2000/svg', 'foreignObject');
                 const midX = (x1 + x2) / 2;
                 const midY = (y1 + y2) / 2;
@@ -450,17 +493,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 foreignObject.setAttribute('height', '30');
                 foreignObject.style.overflow = 'visible';
 
-                // 2. Tạo thẻ div HTML bên trong
                 const div = document.createElement('div');
                 div.style.color = v.color;
                 div.style.fontWeight = 'bold';
                 div.style.fontSize = '16px';
-                div.style.pointerEvents = 'none'; // Không cản trở sự kiện click chuột vào lưới/vector phía dưới
+                div.style.pointerEvents = 'none';
 
-                // Xác định chuỗi LaTeX tương ứng
                 const latexStr = v.label === 'a' ? '\\vec{a}' : (v.label === 'b' ? '\\vec{b}' : '\\vec{u}');
 
-                // 3. Sử dụng KaTeX để render trực tiếp vào phần tử DOM
                 if (typeof katex !== 'undefined') {
                     try {
                         katex.render(latexStr, div, {
@@ -479,7 +519,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        // Draw selection indicator dot only for the currently selected starting point
         if (selectedPointId) {
             const sp = points.find(p => p.id === selectedPointId);
             if (sp) {
@@ -496,7 +535,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
         
-        // Draw coordinate points if enabled
         if (showCoordinates) {
             points.forEach(p => {
                 const cx = p.x * gridSize;
@@ -513,8 +551,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // Practice Mode Logic
-	// 1. Cập nhật nội dung hiển thị yêu cầu bài tập luyện tập (có hỗ trợ KaTeX)
     function updatePracticeInstructionText() {
         if (practiceMode === 'sum') {
             practiceInstruction.innerHTML = `Hãy dựng và vẽ vectơ tổng $\\vec{u} = \\vec{a} + \\vec{b}$ xuất phát từ điểm gốc của $\\vec{a}$ đến điểm cuối của $\\vec{b}$.`;
@@ -531,33 +567,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (window.renderMathInElement) renderMathInElement(practiceInstruction);
     }
 
-    // 2. Lưu trạng thái thẻ Luyện tập vào localStorage (không ảnh hưởng Thử thách Điểm 10)
-    function savePracticeState() {
-        const state = {
-            practiceMode,
-            points,
-            vectors
-        };
-        localStorage.setItem('vector_practice_state', JSON.stringify(state));
-    }
-
-    // 3. Tải trạng thái thẻ Luyện tập từ localStorage khi F5 / mở lại trang
-    function loadPracticeState() {
-        const saved = localStorage.getItem('vector_practice_state');
-        if (!saved) return false;
-        try {
-            const state = JSON.parse(saved);
-            practiceMode = state.practiceMode || 'sum';
-            points = state.points || [];
-            vectors = state.vectors || [];
-            updatePracticeInstructionText();
-            renderElements();
-            return true;
-        } catch (e) {
-            return false;
-        }
-    }
-	
     function resetPractice() {
         points = [];
         vectors = [];
@@ -565,18 +574,14 @@ document.addEventListener('DOMContentLoaded', () => {
         practiceFeedback.textContent = '';
         practiceFeedback.style.color = '#1e293b';
 
-        // Tỷ lệ 4 : 3 : 3 cho 3 trường hợp:
-        // 0: 4 điểm (2 vectơ không chung đầu nào)
-        // 1: 2 vectơ chung gốc
-        // 2: 2 vectơ nối đuôi
         const randCase = Math.random();
         let caseType = 0;
         if (randCase < 0.4) {
-            caseType = 0; // 40% (4 điểm rời nhau)
+            caseType = 0;
         } else if (randCase < 0.7) {
-            caseType = 1; // 30% (Chung gốc)
+            caseType = 1;
         } else {
-            caseType = 2; // 30% (Nối đuôi)
+            caseType = 2;
         }
 
         const ax = getRandomInt(-2, 1);
@@ -587,11 +592,9 @@ document.addEventListener('DOMContentLoaded', () => {
         let p1, p2, p3, p4;
 
         if (caseType === 0) {
-            // Trường hợp 1: 4 điểm hoàn toàn rời nhau (2 vectơ không có đầu nào chung)
             p1 = { id: 'p_a1', x: ax, y: ay };
             p2 = { id: 'p_a2', x: ax + da_x, y: ay + da_y };
 
-            // Tạo điểm xuất phát cho b lệch hẳn đi để không nối đuôi
             const bx_start = ax + getRandomInt(1, 3) * (Math.random() > 0.5 ? 1 : -1);
             const by_start = ay + getRandomInt(1, 3) * (Math.random() > 0.5 ? 1 : -1);
             const db_x = getRandomInt(2, 4) * (Math.random() > 0.5 ? 1 : -1);
@@ -602,26 +605,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
             points.push(p1, p2, p3, p4);
 
-            vectors.push({
-                id: 'v_a',
-                startPointId: p1.id,
-                endPointId: p2.id,
-                type: 'given',
-                color: '#2563eb',
-                label: 'a'
-            });
-
-            vectors.push({
-                id: 'v_b',
-                startPointId: p3.id,
-                endPointId: p4.id,
-                type: 'given',
-                color: '#ea580c',
-                label: 'b'
-            });
+            vectors.push({ id: 'v_a', startPointId: p1.id, endPointId: p2.id, type: 'given', color: '#2563eb', label: 'a' });
+            vectors.push({ id: 'v_b', startPointId: p3.id, endPointId: p4.id, type: 'given', color: '#ea580c', label: 'b' });
 
         } else if (caseType === 1) {
-            // Trường hợp 2: 2 vectơ chung gốc (xuất phát từ cùng 1 điểm)
             p1 = { id: 'p_common', x: ax, y: ay };
             p2 = { id: 'p_a2', x: ax + da_x, y: ay + da_y };
 
@@ -631,26 +618,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
             points.push(p1, p2, p3);
 
-            vectors.push({
-                id: 'v_a',
-                startPointId: p1.id,
-                endPointId: p2.id,
-                type: 'given',
-                color: '#2563eb',
-                label: 'a'
-            });
-
-            vectors.push({
-                id: 'v_b',
-                startPointId: p1.id,
-                endPointId: p3.id,
-                type: 'given',
-                color: '#ea580c',
-                label: 'b'
-            });
+            vectors.push({ id: 'v_a', startPointId: p1.id, endPointId: p2.id, type: 'given', color: '#2563eb', label: 'a' });
+            vectors.push({ id: 'v_b', startPointId: p1.id, endPointId: p3.id, type: 'given', color: '#ea580c', label: 'b' });
 
         } else {
-            // Trường hợp 3: 2 vectơ nối đuôi nhau (điểm cuối a là điểm đầu b)
             p1 = { id: 'p_a1', x: ax, y: ay };
             p2 = { id: 'p_a2', x: ax + da_x, y: ay + da_y };
 
@@ -660,66 +631,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
             points.push(p1, p2, p3);
 
-            vectors.push({
-                id: 'v_a',
-                startPointId: p1.id,
-                endPointId: p2.id,
-                type: 'given',
-                color: '#2563eb',
-                label: 'a'
-            });
-
-            vectors.push({
-                id: 'v_b',
-                startPointId: p2.id,
-                endPointId: p3.id,
-                type: 'given',
-                color: '#ea580c',
-                label: 'b'
-            });
+            vectors.push({ id: 'v_a', startPointId: p1.id, endPointId: p2.id, type: 'given', color: '#2563eb', label: 'a' });
+            vectors.push({ id: 'v_b', startPointId: p2.id, endPointId: p3.id, type: 'given', color: '#ea580c', label: 'b' });
         }
 
         updatePracticeInstructionText();
-		
         renderElements();
-        savePracticeState();
     }
 
-	function updatePracticeInstructionText() {
-        if (practiceMode === 'sum') {
-            practiceInstruction.innerHTML = `Hãy dựng và vẽ vectơ tổng $\\vec{u} = \\vec{a} + \\vec{b}$.`;
-        } else {
-            practiceInstruction.innerHTML = `Hãy dựng và vẽ vectơ hiệu $\\vec{u} = \\vec{a} - \\vec{b}$.`;
-        }
-        
-        modeBtns.forEach(b => {
-            const mode = b.getAttribute('data-mode');
-            if (mode === 'sum') {
-                b.innerHTML = `Tổng: $\\vec{u} = \\vec{a} + \\vec{b}$`;
-            } else {
-                b.innerHTML = `Hiệu: $\\vec{u} = \\vec{a} - \\vec{b}$`;
-            }
-
-            if (mode === practiceMode) {
-                b.classList.add('active');
-            } else {
-                b.classList.remove('active');
-            }
-        });
-
-        // Bắt buộc gọi renderMathInElement cho cả hộp hướng dẫn và các nút bấm chế độ
-        if (typeof renderMathInElement !== 'undefined') {
-            renderMathInElement(practiceInstruction, {
-                delimiters: [{left: "$", right: "$", display: false}]
-            });
-            modeBtns.forEach(b => {
-                renderMathInElement(b, {
-                    delimiters: [{left: "$", right: "$", display: false}]
-                });
-            });
-        }
-    }
-	
+    // Logic kiểm tra: Lấy ĐÚNG vectơ vẽ cuối cùng, đổi màu xanh thẫm (#15803d) để phân biệt
     function checkPracticeResult() {
         const va = vectors.find(v => v.label === 'a');
         const vb = vectors.find(v => v.label === 'b');
@@ -760,12 +680,12 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        // 1. Lấy ĐÚNG vectơ cuối cùng trong danh sách (vectơ vẽ sau cùng)
+        // Lấy đúng vectơ cuối cùng học sinh vẽ
         const lastUserVec = userVectors[userVectors.length - 1];
 
-        // 2. Đổi màu vectơ chốt đáp án sang xanh thẫm (#15803d) để phân biệt trực quan
+        // Đổi màu vectơ chốt đáp án sang xanh thẫm (#15803d) để phân biệt trực quan
         lastUserVec.color = '#15803d';
-        renderElements(); // Vẽ lại giao diện SVG để cập nhật màu sắc ngay lập tức
+        renderElements();
 
         const up1 = points.find(p => p.id === lastUserVec.startPointId);
         const up2 = points.find(p => p.id === lastUserVec.endPointId);
@@ -779,7 +699,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const userDx = up2.x - up1.x;
         const userDy = up2.y - up1.y;
 
-        // 3. Xét điểm xuất phát và tọa độ của riêng vectơ cuối cùng này
         const correctOrigin = practiceMode === 'sum' ? (up1.x === pa1.x && up1.y === pa1.y) : true;
 
         if (userDx === targetDx && userDy === targetDy && correctOrigin) {
@@ -804,7 +723,6 @@ document.addEventListener('DOMContentLoaded', () => {
         challengeTitle.textContent = isSum ? 'Thử thách: Vectơ Tổng' : 'Thử thách: Vectơ Hiệu';
         challengeInstruction.innerHTML = isSum ? 'Vẽ vectơ tổng $\\vec{u} = \\vec{a} + \\vec{b}$.' : 'Vẽ vectơ hiệu $\\vec{u} = \\vec{a} - \\vec{b}$.';
         
-		// Cấu hình render KaTeX tường minh cho phần hướng dẫn thử thách
         if (typeof renderMathInElement !== 'undefined') {
             renderMathInElement(challengeInstruction, {
                 delimiters: [{left: "$", right: "$", display: false}],
@@ -818,10 +736,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         renderElements();
     }
-	// Helper to generate 2 vectors based on 3 cases (ratio 4:3:3)
-    // Case 0 (40%): 4 points (2 separate vectors)
-    // Case 1 (30%): 2 vectors sharing common origin (chung gốc)
-    // Case 2 (30%): 2 vectors head-to-tail (nối đuôi)
+
     function generateVectorsForScenario() {
         const rand = Math.random();
         let caseType = 0;
@@ -839,7 +754,6 @@ document.addEventListener('DOMContentLoaded', () => {
         let generatedVectors = [];
 
         if (caseType === 0) {
-            // 4 points (rời nhau)
             p1 = { id: 'p_' + Math.random(), x: ax, y: ay };
             p2 = { id: 'p_' + Math.random(), x: ax + da_x, y: ay + da_y };
 
@@ -852,24 +766,9 @@ document.addEventListener('DOMContentLoaded', () => {
             p4 = { id: 'p_' + Math.random(), x: bx_start + db_x, y: by_start + db_y };
 
             generatedPoints.push(p1, p2, p3, p4);
-            generatedVectors.push({
-                id: 'v_a_' + Math.random(),
-                startPointId: p1.id,
-                endPointId: p2.id,
-                type: 'given',
-                color: '#2563eb',
-                label: 'a'
-            });
-            generatedVectors.push({
-                id: 'v_b_' + Math.random(),
-                startPointId: p3.id,
-                endPointId: p4.id,
-                type: 'given',
-                color: '#ea580c',
-                label: 'b'
-            });
+            generatedVectors.push({ id: 'v_a_' + Math.random(), startPointId: p1.id, endPointId: p2.id, type: 'given', color: '#2563eb', label: 'a' });
+            generatedVectors.push({ id: 'v_b_' + Math.random(), startPointId: p3.id, endPointId: p4.id, type: 'given', color: '#ea580c', label: 'b' });
         } else if (caseType === 1) {
-            // Chung gốc
             p1 = { id: 'p_' + Math.random(), x: ax, y: ay };
             p2 = { id: 'p_' + Math.random(), x: ax + da_x, y: ay + da_y };
 
@@ -878,24 +777,9 @@ document.addEventListener('DOMContentLoaded', () => {
             p3 = { id: 'p_' + Math.random(), x: ax + db_x, y: ay + db_y };
 
             generatedPoints.push(p1, p2, p3);
-            generatedVectors.push({
-                id: 'v_a_' + Math.random(),
-                startPointId: p1.id,
-                endPointId: p2.id,
-                type: 'given',
-                color: '#2563eb',
-                label: 'a'
-            });
-            generatedVectors.push({
-                id: 'v_b_' + Math.random(),
-                startPointId: p1.id,
-                endPointId: p3.id,
-                type: 'given',
-                color: '#ea580c',
-                label: 'b'
-            });
+            generatedVectors.push({ id: 'v_a_' + Math.random(), startPointId: p1.id, endPointId: p2.id, type: 'given', color: '#2563eb', label: 'a' });
+            generatedVectors.push({ id: 'v_b_' + Math.random(), startPointId: p1.id, endPointId: p3.id, type: 'given', color: '#ea580c', label: 'b' });
         } else {
-            // Nối đuôi
             p1 = { id: 'p_' + Math.random(), x: ax, y: ay };
             p2 = { id: 'p_' + Math.random(), x: ax + da_x, y: ay + da_y };
 
@@ -904,22 +788,8 @@ document.addEventListener('DOMContentLoaded', () => {
             p3 = { id: 'p_' + Math.random(), x: p2.x + db_x, y: p2.y + db_y };
 
             generatedPoints.push(p1, p2, p3);
-            generatedVectors.push({
-                id: 'v_a_' + Math.random(),
-                startPointId: p1.id,
-                endPointId: p2.id,
-                type: 'given',
-                color: '#2563eb',
-                label: 'a'
-            });
-            generatedVectors.push({
-                id: 'v_b_' + Math.random(),
-                startPointId: p2.id,
-                endPointId: p3.id,
-                type: 'given',
-                color: '#ea580c',
-                label: 'b'
-            });
+            generatedVectors.push({ id: 'v_a_' + Math.random(), startPointId: p1.id, endPointId: p2.id, type: 'given', color: '#2563eb', label: 'a' });
+            generatedVectors.push({ id: 'v_b_' + Math.random(), startPointId: p2.id, endPointId: p3.id, type: 'given', color: '#ea580c', label: 'b' });
         }
 
         return { points: generatedPoints, vectors: generatedVectors };
@@ -973,7 +843,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 1500);
     }
 
-    // Header Tools Implementation: Chụp ảnh mặt phẳng SVG sang Clipboard
     function copySvgImageToClipboard() {
         const svgElement = svg;
         const svgRect = svgElement.getBoundingClientRect();
@@ -986,7 +855,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const image = new Image();
         image.onload = () => {
-            exportCanvas.width = svgRect.width * 2; // High DPI for Word
+            exportCanvas.width = svgRect.width * 2;
             exportCanvas.height = svgRect.height * 2;
             const context = exportCanvas.getContext('2d');
             context.fillStyle = '#ffffff';
@@ -1037,88 +906,3 @@ document.addEventListener('DOMContentLoaded', () => {
 
     init();
 });
-
-	function getTouchDistance(touches) {
-        return Math.hypot(
-            touches[0].clientX - touches[1].clientX,
-            touches[0].clientY - touches[1].clientY
-        );
-    }
-
-    function onTouchStart(e) {
-        if (e.touches.length === 1) {
-            // 1 ngón tay: Chuẩn bị pan (hoặc chuẩn bị click điểm)
-            isPanning = true;
-            touchMode = 'pan';
-            startPanX = e.touches[0].clientX - panX;
-            startPanY = e.touches[0].clientY - panY;
-        } else if (e.touches.length === 2) {
-            // 2 ngón tay: Chuẩn bị pinch-zoom
-            isPanning = false;
-            touchMode = 'zoom';
-            lastTouchDistance = getTouchDistance(e.touches);
-            e.preventDefault();
-        }
-    }
-
-    function onTouchMove(e) {
-        if (touchMode === 'pan' && isPanning && e.touches.length === 1) {
-            panX = e.touches[0].clientX - startPanX;
-            panY = e.touches[0].clientY - startPanY;
-            updateTransform();
-            e.preventDefault();
-        } else if (touchMode === 'zoom' && e.touches.length === 2) {
-            // Xử lý phóng to / thu nhỏ bằng 2 ngón tay
-            e.preventDefault();
-            const currentDist = getTouchDistance(e.touches);
-            if (lastTouchDistance > 0) {
-                const zoomFactor = currentDist / lastTouchDistance;
-                const newZoom = Math.max(0.4, Math.min(3, zoom * zoomFactor));
-
-                // Tâm điểm giữa 2 ngón tay
-                const rect = svg.getBoundingClientRect();
-                const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2 - rect.left;
-                const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2 - rect.top;
-
-                panX = midX - (midX - panX) * (newZoom / zoom) - originX * (newZoom / zoom) + originX;
-                panY = midY - (midY - panY) * (newZoom / zoom) - originY * (newZoom / zoom) + originY;
-                zoom = newZoom;
-                updateTransform();
-            }
-            lastTouchDistance = currentDist;
-        }
-    }
-
-    function onTouchEnd(e) {
-        if (e.touches.length === 0) {
-            isPanning = false;
-            touchMode = 'none';
-        } else if (e.touches.length === 1) {
-            // Chuyển từ 2 ngón về 1 ngón thì cập nhật lại vị trí pan để tránh bị giật màn hình
-            touchMode = 'pan';
-            isPanning = true;
-            startPanX = e.touches[0].clientX - panX;
-            startPanY = e.touches[0].clientY - panY;
-        }
-    }
-	
-	
-	// Kiểm tra hướng màn hình khi thay đổi hoặc tải trang
-    function checkOrientation() {
-        const rotateWarning = document.getElementById('rotate-warning');
-        if (!rotateWarning) return;
-
-        // Nếu là thiết bị nhỏ và đang dọc (height > width)
-        if (window.innerWidth <= 900 && window.innerHeight > window.innerWidth) {
-            rotateWarning.style.display = 'flex';
-        } else {
-            rotateWarning.style.display = 'none';
-        }
-    }
-
-    // Lắng nghe sự kiện xoay màn hình
-    window.addEventListener('resize', checkOrientation);
-    window.addEventListener('orientationchange', checkOrientation);
-    
-    // Gọi ngay khi khởi chạy trong hàm init()
-    checkOrientation();
