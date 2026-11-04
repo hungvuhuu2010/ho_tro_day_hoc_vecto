@@ -717,7 +717,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const userDx = up2.x - up1.x;
         const userDy = up2.y - up1.y;
 
-        const correctOrigin = practiceMode === 'sum' ? (up1.x === pa1.x && up1.y === pa1.y) : true;
+		const correctOrigin = practiceMode === 'sum' ? ((up1.x === pa1.x && up1.y === pa1.y) || (up1.x === pb1.x && up1.y === pb1.y)):true; 
 
         if (userDx === targetDx && userDy === targetDy && correctOrigin) {
             practiceFeedback.textContent = '🎉 Chính xác tuyệt đối! Vectơ cuối cùng bạn vẽ là đáp án đúng.';
@@ -840,7 +840,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const userDx = up2.x - up1.x;
         const userDy = up2.y - up1.y;
 
-        const correctOrigin = currentChallenge.type === 'sum' ? (up1.x === pa1.x && up1.y === pa1.y) : true;
+		const correctOrigin = currentChallenge.type === 'sum' ? ((up1.x === pa1.x && up1.y === pa1.y) || (up1.x === pb1.x && up1.y === pb1.y)): true;
 
         student.count++;
         if (userDx === targetDx && userDy === targetDy && correctOrigin) {
