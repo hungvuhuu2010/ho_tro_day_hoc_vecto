@@ -659,74 +659,77 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Logic kiểm tra: Lấy ĐÚNG vectơ vẽ cuối cùng, đổi màu xanh thẫm (#15803d) để phân biệt
     function checkPracticeResult() {
-        const va = vectors.find(v => v.label === 'a');
-        const vb = vectors.find(v => v.label === 'b');
-        if (!va || !vb) {
-            practiceFeedback.textContent = '❌ Không tìm thấy vectơ đề bài!';
-            practiceFeedback.style.color = '#dc2626';
-            return;
-        }
-
-        const pa1 = points.find(p => p.id === va.startPointId);
-        const pa2 = points.find(p => p.id === va.endPointId);
-        const pb1 = points.find(p => p.id === vb.startPointId);
-        const pb2 = points.find(p => p.id === vb.endPointId);
-
-        if (!pa1 || !pa2 || !pb1 || !pb2) {
-            practiceFeedback.textContent = '❌ Lỗi dữ liệu điểm của vectơ đề bài!';
-            practiceFeedback.style.color = '#dc2626';
-            return;
-        }
-
-        const vecA = { x: pa2.x - pa1.x, y: pa2.y - pa1.y };
-        const vecB = { x: pb2.x - pb1.x, y: pb2.y - pb1.y };
-
-        let targetDx = 0;
-        let targetDy = 0;
-        if (practiceMode === 'sum') {
-            targetDx = vecA.x + vecB.x;
-            targetDy = vecA.y + vecB.y;
-        } else {
-            targetDx = vecA.x - vecB.x;
-            targetDy = vecA.y - vecB.y;
-        }
-
-        const userVectors = vectors.filter(v => v.type === 'user');
-        if (userVectors.length === 0) {
-            practiceFeedback.textContent = '❌ Bạn chưa vẽ vectơ kết quả!';
-            practiceFeedback.style.color = '#dc2626';
-            return;
-        }
-
-        // Lấy đúng vectơ cuối cùng học sinh vẽ
-        const lastUserVec = userVectors[userVectors.length - 1];
-
-        // Đổi màu vectơ chốt đáp án sang xanh thẫm (#15803d) để phân biệt trực quan
-        lastUserVec.color = '#15803d';
-        renderElements();
-
-        const up1 = points.find(p => p.id === lastUserVec.startPointId);
-        const up2 = points.find(p => p.id === lastUserVec.endPointId);
-
-        if (!up1 || !up2) {
-            practiceFeedback.textContent = '❌ Lỗi điểm của vectơ học sinh vẽ!';
-            practiceFeedback.style.color = '#dc2626';
-            return;
-        }
-
-        const userDx = up2.x - up1.x;
-        const userDy = up2.y - up1.y;
-
-		const correctOrigin = practiceMode === 'sum' ? ((up1.x === pa1.x && up1.y === pa1.y) || (up1.x === pb1.x && up1.y === pb1.y)):true; 
-
-        if (userDx === targetDx && userDy === targetDy && correctOrigin) {
-            practiceFeedback.textContent = '🎉 Chính xác tuyệt đối! Vectơ cuối cùng bạn vẽ là đáp án đúng.';
-            practiceFeedback.style.color = '#16a34a';
-        } else {
-            practiceFeedback.textContent = '❌ Chưa chính xác. Vectơ cuối cùng bạn vẽ chưa đúng hướng, độ dài hoặc điểm xuất phát!';
-            practiceFeedback.style.color = '#dc2626';
-        }
+    const va = vectors.find(v => v.label === 'a');
+    const vb = vectors.find(v => v.label === 'b');
+    if (!va || !vb) {
+        practiceFeedback.textContent = '❌ Không tìm thấy vectơ đề bài!';
+        practiceFeedback.style.color = '#dc2626';
+        return;
     }
+
+    const pa1 = points.find(p => p.id === va.startPointId);
+    const pa2 = points.find(p => p.id === va.endPointId);
+    const pb1 = points.find(p => p.id === vb.startPointId);
+    const pb2 = points.find(p => p.id === vb.endPointId);
+
+    if (!pa1 || !pa2 || !pb1 || !pb2) {
+        practiceFeedback.textContent = '❌ Lỗi dữ liệu điểm của vectơ đề bài!';
+        practiceFeedback.style.color = '#dc2626';
+        return;
+    }
+
+    // 1. Tính tọa độ thành phần của hai vectơ đề bài: vecA và vecB
+    const vecA = { x: pa2.x - pa1.x, y: pa2.y - pa1.y };
+    const vecB = { x: pb2.x - pb1.x, y: pb2.y - pb1.y };
+
+    // 2. Tính tọa độ thành phần vectơ mục tiêu (targetDx, targetDy)
+    let targetDx = 0;
+    let targetDy = 0;
+    if (practiceMode === 'sum') {
+        targetDx = vecA.x + vecB.x;
+        targetDy = vecA.y + vecB.y;
+    } else {
+        targetDx = vecA.x - vecB.x;
+        targetDy = vecA.y - vecB.y;
+    }
+
+    const userVectors = vectors.filter(v => v.type === 'user');
+    if (userVectors.length === 0) {
+        practiceFeedback.textContent = '❌ Bạn chưa vẽ vectơ kết quả!';
+        practiceFeedback.style.color = '#dc2626';
+        return;
+    }
+
+    // 3. Lấy vectơ cuối cùng học sinh vẽ
+    const lastUserVec = userVectors[userVectors.length - 1];
+
+    // Đổi màu vectơ chốt đáp án sang xanh thẫm (#15803d) để phân biệt trực quan
+    lastUserVec.color = '#15803d';
+    renderElements();
+
+    const up1 = points.find(p => p.id === lastUserVec.startPointId);
+    const up2 = points.find(p => p.id === lastUserVec.endPointId);
+
+    if (!up1 || !up2) {
+        practiceFeedback.textContent = '❌ Lỗi điểm của vectơ học sinh vẽ!';
+        practiceFeedback.style.color = '#dc2626';
+        return;
+    }
+
+    // 4. Tính tọa độ thành phần của vectơ do học sinh vẽ
+    const userDx = up2.x - up1.x;
+    const userDy = up2.y - up1.y;
+
+    // 5. So sánh tọa độ thành phần (Bỏ hẳn ràng buộc điểm gốc correctOrigin)
+    if (userDx === targetDx && userDy === targetDy) {
+        practiceFeedback.textContent = '🎉 Chính xác tuyệt đối! Vectơ cuối cùng bạn vẽ là đáp án đúng.';
+        practiceFeedback.style.color = '#16a34a';
+    } else {
+        practiceFeedback.textContent = '❌ Chưa chính xác. Vectơ cuối cùng bạn vẽ chưa đúng hướng hoặc độ dài!';
+        practiceFeedback.style.color = '#dc2626';
+    }
+}
+
 
     // Challenge Mode Logic
     function startNewChallenge() {
@@ -843,15 +846,16 @@ document.addEventListener('DOMContentLoaded', () => {
 		const correctOrigin = currentChallenge.type === 'sum' ? ((up1.x === pa1.x && up1.y === pa1.y) || (up1.x === pb1.x && up1.y === pb1.y)): true;
 
         student.count++;
-        if (userDx === targetDx && userDy === targetDy && correctOrigin) {
-            student.score += 1;
-            challengeFeedback.textContent = '🎉 Chính xác! +1 điểm.';
-            challengeFeedback.style.color = '#16a34a';
-        } else {
-            student.score -= 1;
-            challengeFeedback.textContent = '❌ Sai rồi! -1 điểm.';
-            challengeFeedback.style.color = '#dc2626';
-        }
+		if (userDx === targetDx && userDy === targetDy) {
+		    student.score += 1;
+		    challengeFeedback.textContent = '🎉 Chính xác! +1 điểm.';
+		    challengeFeedback.style.color = '#16a34a';
+		} else {
+		    student.score -= 1;
+		    challengeFeedback.textContent = '❌ Sai rồi! -1 điểm.';
+		    challengeFeedback.style.color = '#dc2626';
+		}
+
 
         dispScore.textContent = student.score;
         dispCount.textContent = student.count;
