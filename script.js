@@ -390,7 +390,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const exactX = gridX * gridSize;
         const exactY = -gridY * gridSize;
         const dist = Math.hypot(svgX - exactX, svgY - exactY);
-        if (dist > gridSize * 0.25) return;
+        if (dist > gridSize * 0.15) return;
 
         let clickedPoint = points.find(p => p.x === gridX && p.y === gridY);
 
