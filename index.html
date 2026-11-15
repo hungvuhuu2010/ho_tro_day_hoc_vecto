@@ -65,23 +65,24 @@
                     <div class="mode-selector">
 						<button class="mode-btn active" data-mode="sum">Tổng: $\\vec{u} = \\vec{a} + \\vec{b}$</button>
 						<button class="mode-btn" data-mode="diff">Hiệu: $\\vec{u} = \\vec{a} - \\vec{b}$</button>
+						<button class="mode-btn" data-mode="scale">Nhân vectơ: $k\vec{a}$</button>
+						<button class="mode-btn" data-mode="pointM">Tìm điểm $M$</button>
 					</div>
                 </div>
 
                 <div class="panel-section">
                     <button id="btn-new-practice" class="primary-btn">Bài mới</button>
-                </div>
+					<button id="btn-check-practice" class="success-btn">Kiểm tra kết quả</button>
+                    <div id="practice-feedback" class="feedback-msg"></div>
+				</div>
 
                 <div class="panel-section instruction-box">
                     <h4>Yêu cầu:</h4>
                     <p id="practice-instruction">Hãy chấm điểm để vẽ vectơ $\\vec{a}$, vectơ $\\vec{b}$ và vectơ tổng $\\vec{a} +\\vec{b}$ trên lưới ô vuông.</p>
-                    <p class="hint-text">💡 Kích đúp vào vectơ để xóa nếu vẽ sai.</p>
+                    <p class="hint-text">💡 Chọn “Delete” rồi chạm vào vectơ cần xóa. Chọn “Reset” để xóa các vectơ đã vẽ.</p>
+
                 </div>
 
-                <div class="panel-section">
-                    <button id="btn-check-practice" class="success-btn">Kiểm tra kết quả</button>
-                    <div id="practice-feedback" class="feedback-msg"></div>
-                </div>
             </div>
 
             <!-- Tab 2: Thử thách Điểm 10 -->
@@ -129,6 +130,9 @@
         <main class="workspace" id="workspace-container">
             <div class="toolbar-overlay">
                 <div class="zoom-controls">
+					<button id="btn-delete-mode" class="tool-btn text-btn" type="button">Clear vectơ</button>
+					<button id="btn-clear-vectors" class="tool-btn text-btn" type="button">Clear</button>
+
                     <button id="btn-zoom-in" title="Phóng to">+</button>
                     <button id="btn-zoom-out" title="Thu nhỏ">-</button>
                     <button id="btn-zoom-reset" title="Mặc định">1:1</button>
@@ -167,9 +171,8 @@
                 <li><strong>Di chuyển lưới (Pan):</strong> Nhấn giữ chuột phải hoặc giữ phím Shift kết hợp kéo chuột trái trên vùng lưới.</li>
                 <li><strong>Phóng to / Thu nhỏ (Zoom):</strong> Dùng con lăn chuột trên vùng lưới hoặc các nút góc phải.</li>
                 <li><strong>Vẽ vectơ:</strong> Click điểm đầu, sau đó click điểm cuối. Điểm tự động bắt dính vào mắt lưới ô vuông.</li>
-                <li><strong>Xóa đối tượng:</strong> Kích đúp (Double-click) vào vectơ học sinh vẽ để xóa.</li>
+				<li><strong>Xóa vectơ:</strong> Bật nút “Delete”, sau đó chạm vào vectơ học sinh muốn xóa. Nút “Clear” chỉ xóa vectơ học sinh đã vẽ.</li>
                 <li><strong>Nút bật tọa độ (góc trên):</strong> Dùng khi giáo viên muốn hiển thị hệ trục tọa độ và tọa độ các điểm để dạy học hình học tọa độ.</li>
-                <li><strong>Sao chép ảnh:</strong> Bấm icon máy ảnh ở góc trên để chụp ảnh mặt phẳng lưới và copy vào Clipboard, dán trực tiếp vào Word.</li>
             </ul>
         </div>
     </div>

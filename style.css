@@ -150,11 +150,14 @@ body, html {
 
 .mode-selector {
     display: flex;
+	flex-wrap: wrap;
     gap: 8px;
 }
 
 .mode-btn {
-    flex: 1;
+    flex: 1 1 calc(50% - 8px);
+	min-width: 112px;
+
     padding: 8px;
     border: 1px solid #cbd5e1;
     background: #f8fafc;
@@ -331,9 +334,9 @@ body, html {
     right: 15px;
     display: flex;
     align-items: center;
-    gap: 15px;
+    gap: 8px;
     background: rgba(255, 255, 255, 0.9);
-    padding: 6px 12px;
+    padding: 6px 8px;
     border-radius: 8px;
     box-shadow: 0 2px 8px rgba(0,0,0,0.1);
     border: 1px solid #e2e8f0;
@@ -481,4 +484,25 @@ body, html {
     font-size: 0.9rem;
     color: var(--text-light);
     line-height: 1.4;
+}
+
+.text-btn {
+    min-height: 30px;
+    padding: 5px 9px;
+    font-size: 0.78rem;
+    white-space: nowrap;
+}
+
+@media (max-width: 768px) {
+    .toolbar-overlay {
+        top: 8px;
+        right: 8px;
+        gap: 5px;
+        padding: 5px;
+    }
+
+    .text-btn {
+        padding: 5px 7px;
+        font-size: 0.72rem;
+    }
 }

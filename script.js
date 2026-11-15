@@ -43,11 +43,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnZoomIn = document.getElementById('btn-zoom-in');
     const btnZoomOut = document.getElementById('btn-zoom-out');
     const btnZoomReset = document.getElementById('btn-zoom-reset');
+	const btnDeleteMode = document.getElementById('btn-delete-mode');
+	const btnClearVectors = document.getElementById('btn-clear-vectors');
+
 
     // State variables
-    let practiceMode = 'sum'; // 'sum' or 'diff'
+    let practiceMode = 'sum'; // sum, diff, scale, pointM
+	let currentPractice = {};
+
     let showCoordinates = false;
-	
+	let deleteMode = false;
+
     // SVG Pan & Zoom state
     let panX = 0;
     let panY = 0;
@@ -247,6 +253,31 @@ document.addEventListener('DOMContentLoaded', () => {
         btnZoomIn.addEventListener('click', () => { zoom = Math.min(zoom * 1.2, 3); updateTransform(); });
         btnZoomOut.addEventListener('click', () => { zoom = Math.max(zoom / 1.2, 0.4); updateTransform(); });
         btnZoomReset.addEventListener('click', () => { zoom = 1; panX = 0; panY = 0; updateTransform(); });
+		btnDeleteMode.addEventListener('click', () => {
+			deleteMode = !deleteMode;
+			btnDeleteMode.classList.toggle('active', deleteMode);
+			btnDeleteMode.textContent = deleteMode ? 'Đang xóa' : 'Xóa vectơ';
+			selectedPointId = null;
+			renderElements();
+		});
+
+		btnClearVectors.addEventListener('click', () => {
+			const hasUserVectors = vectors.some(v => v.type === 'user');
+			if (!hasUserVectors) return;
+
+			if (!confirm('Bạn có chắc muốn xóa tất cả vectơ đã vẽ?')) return;
+
+			vectors = vectors.filter(v => v.type !== 'user');
+			selectedPointId = null;
+			cleanupUnusedPoints();
+			deleteMode = false;
+			btnDeleteMode.classList.remove('active');
+			btnDeleteMode.textContent = 'Xóa vectơ';
+			renderElements();
+		});
+
+
+
 
         // Touch events for mobile/tablet support
         svg.addEventListener('touchstart', onTouchStart, { passive: false });
@@ -376,69 +407,137 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // SVG Click to Draw Points and Vectors
     function onSvgClick(e) {
-        if (isPanning || e.shiftKey || e.button === 2) return;
-        const rect = svg.getBoundingClientRect();
-        const clientX = e.clientX - rect.left;
-        const clientY = e.clientY - rect.top;
+		if (isPanning || e.shiftKey || e.button === 2) return;
 
-        const svgX = (clientX - originX - panX) / zoom;
-        const svgY = (clientY - originY - panY) / zoom;
-        
-        const gridX = Math.round(svgX / gridSize);
-        const gridY = Math.round(-svgY / gridSize);
+		const rect = svg.getBoundingClientRect();
+		const clientX = e.clientX - rect.left;
+		const clientY = e.clientY - rect.top;
 
-        const exactX = gridX * gridSize;
-        const exactY = -gridY * gridSize;
-        const dist = Math.hypot(svgX - exactX, svgY - exactY);
-        if (dist > gridSize * 0.15) return;
+		const svgX = (clientX - originX - panX) / zoom;
+		const svgY = (clientY - originY - panY) / zoom;
 
-        let clickedPoint = points.find(p => p.x === gridX && p.y === gridY);
+		// Chế độ xóa: tìm vectơ học sinh gần vị trí chạm nhất.
+		if (deleteMode) {
+			let nearestVector = null;
+			let minDistance = Infinity;
 
-        if (!clickedPoint) {
-            clickedPoint = { id: 'p_' + Date.now() + '_' + Math.random(), x: gridX, y: gridY };
-            points.push(clickedPoint);
-        }
+			vectors.forEach(v => {
+				if (v.type !== 'user') return;
 
-        if (selectedPointId === null) {
-            selectedPointId = clickedPoint.id;
-        } else {
-            if (selectedPointId === clickedPoint.id) {
-                selectedPointId = null;
+				const startP = points.find(p => p.id === v.startPointId);
+				const endP = points.find(p => p.id === v.endPointId);
+				if (!startP || !endP) return;
+
+				const distance = distanceToSegment(
+					svgX, svgY,
+					startP.x * gridSize, -startP.y * gridSize,
+					endP.x * gridSize, -endP.y * gridSize
+				);
+
+				if (distance < minDistance) {
+					minDistance = distance;
+					nearestVector = v;
+				}
+			});
+
+			// Vùng nhận chạm tương đương khoảng 24px trên màn hình.
+			if (nearestVector && minDistance <= 24 / zoom) {
+				vectors = vectors.filter(v => v.id !== nearestVector.id);
+				selectedPointId = null;
+				cleanupUnusedPoints();
+				renderElements();
+			}
+			return;
+		}
+
+		// Bắt dính thông minh: luôn chọn giao điểm lưới gần nhất.
+		// Bỏ ngưỡng từ chối chạm cũ gridSize * 0.25.
+		const gridX = Math.round(svgX / gridSize);
+		const gridY = Math.round(-svgY / gridSize);
+
+		// Chế độ tìm M: một lần chạm sẽ tạo/cập nhật điểm M,
+        // không đi vào luồng vẽ vectơ.
+        if (practiceMode === 'pointM') {
+            let answerM = points.find(p => p.id === 'p_user_M');
+
+            if (!answerM) {
+                points.push({
+                    id: 'p_user_M',
+                    x: gridX,
+                    y: gridY,
+                    label: 'M',
+                    role: 'answer'
+                });
             } else {
-                const startP = points.find(p => p.id === selectedPointId);
-                const endP = clickedPoint;
-                
-                const existingVec = vectors.find(v => v.type === 'user' && v.startPointId === startP.id && v.endPointId === endP.id);
-                if (!existingVec) {
-                    vectors.push({
-                        id: 'v_' + Date.now(),
-                        startPointId: startP.id,
-                        endPointId: endP.id,
-                        type: 'user',
-                        color: '#16a34a',
-                        label: ''
-                    });
-                }
-                selectedPointId = null;
+                answerM.x = gridX;
+                answerM.y = gridY;
             }
-        }
-        renderElements();
-    }
 
-    svg.addEventListener('dblclick', (e) => {
-        const target = e.target;
-        const id = target.getAttribute('data-id');
-        if (!id) return;
-
-        if (id.startsWith('v_')) {
-            const vec = vectors.find(v => v.id === id);
-            if (vec && vec.type === 'user') {
-                vectors = vectors.filter(v => v.id !== id);
-                cleanupUnusedPoints();
-            }
+            selectedPointId = null;
+            renderElements();
+            return;
         }
-        renderElements();
-    });
+
+
+		let clickedPoint = points.find(p => p.x === gridX && p.y === gridY);
+
+		if (!clickedPoint) {
+			clickedPoint = {
+				id: 'p_' + Date.now() + '_' + Math.random(),
+				x: gridX,
+				y: gridY
+			};
+			points.push(clickedPoint);
+		}
+
+		if (selectedPointId === null) {
+			selectedPointId = clickedPoint.id;
+		} else {
+			if (selectedPointId === clickedPoint.id) {
+				selectedPointId = null;
+			} else {
+				const startP = points.find(p => p.id === selectedPointId);
+				const endP = clickedPoint;
+
+				const existingVec = vectors.find(v =>
+					v.type === 'user' &&
+					v.startPointId === startP.id &&
+					v.endPointId === endP.id
+				);
+
+				if (!existingVec) {
+					vectors.push({
+						id: 'v_' + Date.now(),
+						startPointId: startP.id,
+						endPointId: endP.id,
+						type: 'user',
+						color: '#16a34a',
+						label: ''
+					});
+				}
+				selectedPointId = null;
+			}
+		}
+		renderElements();
+	}
+
+	function distanceToSegment(px, py, x1, y1, x2, y2) {
+		const dx = x2 - x1;
+		const dy = y2 - y1;
+		const lengthSquared = dx * dx + dy * dy;
+
+		if (lengthSquared === 0) {
+			return Math.hypot(px - x1, py - y1);
+		}
+
+		const t = Math.max(0, Math.min(1,
+			((px - x1) * dx + (py - y1) * dy) / lengthSquared
+		));
+
+		const nearestX = x1 + t * dx;
+		const nearestY = y1 + t * dy;
+		return Math.hypot(px - nearestX, py - nearestY);
+	}
 
     function cleanupUnusedPoints() {
         const usedPointIds = new Set();
@@ -449,8 +548,35 @@ document.addEventListener('DOMContentLoaded', () => {
         points = points.filter(p => usedPointIds.has(p.id));
     }
 
+	function renderSegmentAB() {
+        if (practiceMode !== 'pointM') return;
+
+        const pointA = points.find(p => p.id === 'p_A');
+        const pointB = points.find(p => p.id === 'p_B');
+        if (!pointA || !pointB) return;
+
+        const segment = document.createElementNS(
+            'http://www.w3.org/2000/svg',
+            'line'
+        );
+
+        segment.setAttribute('x1', pointA.x * gridSize);
+        segment.setAttribute('y1', -pointA.y * gridSize);
+        segment.setAttribute('x2', pointB.x * gridSize);
+        segment.setAttribute('y2', -pointB.y * gridSize);
+        segment.setAttribute('stroke', '#64748b');
+        segment.setAttribute('stroke-width', '2.5');
+        segment.setAttribute('stroke-linecap', 'round');
+        segment.setAttribute('pointer-events', 'none');
+
+        // Không gắn marker-end: đây là đoạn thẳng, không phải vectơ.
+        elementsGroup.appendChild(segment);
+    }
+
+
     function renderElements() {
         elementsGroup.innerHTML = '';
+		renderSegmentAB();
 
         vectors.forEach(v => {
             const startP = points.find(p => p.id === v.startPointId);
@@ -517,6 +643,29 @@ document.addEventListener('DOMContentLoaded', () => {
                 elementsGroup.appendChild(foreignObject);
             }
         });
+		// Vẽ các điểm có nhãn A, B, M.
+        points.filter(p => p.label).forEach(p => {
+            const cx = p.x * gridSize;
+            const cy = -p.y * gridSize;
+            const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+            circle.setAttribute('cx', cx);
+            circle.setAttribute('cy', cy);
+            circle.setAttribute('r', '5');
+            circle.setAttribute('fill', p.role === 'answer' ? '#15803d' : '#0f172a');
+            circle.setAttribute('stroke', '#ffffff');
+            circle.setAttribute('stroke-width', '1.5');
+            elementsGroup.appendChild(circle);
+
+            const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            label.setAttribute('x', cx + 8);
+            label.setAttribute('y', cy - 9);
+            label.setAttribute('fill', p.role === 'answer' ? '#15803d' : '#0f172a');
+            label.setAttribute('font-size', '14');
+            label.setAttribute('font-weight', '700');
+            label.textContent = p.label;
+            elementsGroup.appendChild(label);
+        });
+
 
         if (selectedPointId) {
             const sp = points.find(p => p.id === selectedPointId);
@@ -551,39 +700,84 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function updatePracticeInstructionText() {
-        if (practiceMode === 'sum') {
-            practiceInstruction.innerHTML = `Hãy dựng và vẽ vectơ tổng $\\vec{u} = \\vec{a} + \\vec{b}$.`;
-        } else {
-            practiceInstruction.innerHTML = `Hãy dựng và vẽ vectơ hiệu $\\vec{u} = \\vec{a} - \\vec{b}$.`;
-        }
-        
-        modeBtns.forEach(b => {
-            const mode = b.getAttribute('data-mode');
-            if (mode === 'sum') {
-                b.innerHTML = `Tổng: $\\vec{u} = \\vec{a} + \\vec{b}$`;
-            } else {
-                b.innerHTML = `Hiệu: $\\vec{u} = \\vec{a} - \\vec{b}$`;
-            }
+        const labels = {
+            sum: 'Tổng: $\\vec{u}=\\vec{a}+\\vec{b}$',
+            diff: 'Hiệu: $\\vec{u}=\\vec{a}-\\vec{b}$',
+            scale: 'Nhân vectơ: $k\\vec{a}$',
+            pointM: 'Tìm điểm $M$'
+        };
 
-            if (mode === practiceMode) {
-                b.classList.add('active');
-            } else {
-                b.classList.remove('active');
-            }
+        modeBtns.forEach(btn => {
+            const mode = btn.getAttribute('data-mode');
+            btn.innerHTML = labels[mode] || btn.textContent;
+            btn.classList.toggle('active', mode === practiceMode);
         });
 
-        // Bắt buộc gọi renderMathInElement cho cả hộp hướng dẫn và các nút bấm chế độ
+        if (practiceMode === 'sum') {
+            practiceInstruction.innerHTML = 'Hãy vẽ vectơ tổng $\\vec{u}=\\vec{a}+\\vec{b}$. ';
+        } else if (practiceMode === 'diff') {
+            practiceInstruction.innerHTML = 'Hãy vẽ vectơ hiệu $\\vec{u}=\\vec{a}-\\vec{b}$. ';
+        } else if (practiceMode === 'scale') {
+            practiceInstruction.innerHTML = `Cho vectơ $\\vec{a}$ và $k=${currentPractice.k}$. Hãy vẽ vectơ $k\\vec{a}$. Nhấp điểm đầu rồi điểm cuối của vectơ kết quả.`;
+        } else if (practiceMode === 'pointM') {
+            practiceInstruction.innerHTML = `Cho hai điểm $A,B$. Hãy xác định điểm $M$ thỏa mãn $\\overrightarrow{MA}+(${currentPractice.k})\\overrightarrow{MB}=\\vec{0}$. Nhấp một lần vào vị trí điểm $M$ trên lưới.`;
+        }
+
         if (typeof renderMathInElement !== 'undefined') {
             renderMathInElement(practiceInstruction, {
-                delimiters: [{left: "$", right: "$", display: false}]
+                delimiters: [{left: '$', right: '$', display: false}],
+                throwOnError: false
             });
-            modeBtns.forEach(b => {
-                renderMathInElement(b, {
-                    delimiters: [{left: "$", right: "$", display: false}]
-                });
-            });
+            modeBtns.forEach(btn => renderMathInElement(btn, {
+                delimiters: [{left: '$', right: '$', display: false}],
+                throwOnError: false
+            }));
         }
     }
+
+    function createScalePractice() {
+        // Vectơ a có thành phần nguyên nhỏ; k được chọn phù hợp để k*a vẫn gọn trên lưới.
+        const dx = getRandomInt(1, 3) * (Math.random() < 0.5 ? -1 : 1);
+        const dy = getRandomInt(1, 3) * (Math.random() < 0.5 ? -1 : 1);
+        const startX = getRandomInt(-2, 1);
+        const startY = getRandomInt(-2, 1);
+        const p1 = { id: 'p_scale_a1', x: startX, y: startY };
+        const p2 = { id: 'p_scale_a2', x: startX + dx, y: startY + dy };
+        const kOptions = [-2, -1, 1, 2];
+        const k = kOptions[getRandomInt(0, kOptions.length - 1)];
+
+        points.push(p1, p2);
+        vectors.push({
+            id: 'v_a', startPointId: p1.id, endPointId: p2.id,
+            type: 'given', color: '#2563eb', label: 'a'
+        });
+        currentPractice = { k, targetDx: k * dx, targetDy: k * dy };
+    }
+
+    function createPointMPractice() {
+        // Chọn k và A, B sao cho M=(A+kB)/(1+k) có tọa độ nguyên.
+        const k = [-2, 1, 2][getRandomInt(0, 2)];
+        const divisor = Math.abs(1 + k);
+        const A = { x: getRandomInt(-2, 2), y: getRandomInt(-2, 2) };
+        let dx = 0, dy = 0;
+        while (dx === 0 && dy === 0) {
+            dx = getRandomInt(-2, 2) * divisor;
+            dy = getRandomInt(-2, 2) * divisor;
+        }
+        const B = { x: A.x + dx, y: A.y + dy };
+        const M = {
+            x: (A.x + k * B.x) / (1 + k),
+            y: (A.y + k * B.y) / (1 + k)
+        };
+
+        points.push(
+            { id: 'p_A', x: A.x, y: A.y, label: 'A' },
+            { id: 'p_B', x: B.x, y: B.y, label: 'B' }
+        );
+        currentPractice = { k, targetX: M.x, targetY: M.y };
+    }
+
+
 
     function resetPractice() {
         points = [];
@@ -591,6 +785,22 @@ document.addEventListener('DOMContentLoaded', () => {
         selectedPointId = null;
         practiceFeedback.textContent = '';
         practiceFeedback.style.color = '#1e293b';
+
+		currentPractice = {};
+
+        if (practiceMode === 'scale') {
+            createScalePractice();
+            updatePracticeInstructionText();
+            renderElements();
+            return;
+        }
+        if (practiceMode === 'pointM') {
+            createPointMPractice();
+            updatePracticeInstructionText();
+            renderElements();
+            return;
+        }
+
 
         const randCase = Math.random();
         let caseType = 0;
@@ -659,77 +869,111 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Logic kiểm tra: Lấy ĐÚNG vectơ vẽ cuối cùng, đổi màu xanh thẫm (#15803d) để phân biệt
     function checkPracticeResult() {
-    const va = vectors.find(v => v.label === 'a');
-    const vb = vectors.find(v => v.label === 'b');
-    if (!va || !vb) {
-        practiceFeedback.textContent = '❌ Không tìm thấy vectơ đề bài!';
-        practiceFeedback.style.color = '#dc2626';
-        return;
+        if (practiceMode === 'scale') {
+            const userVectors = vectors.filter(v => v.type === 'user');
+            if (userVectors.length === 0) {
+                practiceFeedback.textContent = '❌ Bạn chưa vẽ vectơ kết quả!';
+                practiceFeedback.style.color = '#dc2626';
+                return;
+            }
+            const answer = userVectors[userVectors.length - 1];
+            const start = points.find(p => p.id === answer.startPointId);
+            const end = points.find(p => p.id === answer.endPointId);
+            if (!start || !end) return;
+            answer.color = '#15803d';
+            renderElements();
+            const ok = end.x - start.x === currentPractice.targetDx &&
+                       end.y - start.y === currentPractice.targetDy;
+            practiceFeedback.textContent = ok
+                ? '🎉 Chính xác! Vectơ bạn vẽ bằng k·a.'
+                : '❌ Chưa chính xác. Hãy kiểm tra hướng và độ dài vectơ.';
+            practiceFeedback.style.color = ok ? '#16a34a' : '#dc2626';
+            return;
+        }
+
+        if (practiceMode === 'pointM') {
+            const answer = points.find(p => p.id === 'p_user_M');
+            if (!answer) {
+                practiceFeedback.textContent = '❌ Bạn chưa chọn vị trí điểm M!';
+                practiceFeedback.style.color = '#dc2626';
+                return;
+            }
+            const ok = answer.x === currentPractice.targetX && answer.y === currentPractice.targetY;
+            practiceFeedback.textContent = ok
+                ? '🎉 Chính xác! Bạn đã xác định đúng điểm M.'
+                : '❌ Chưa chính xác. Hãy xem lại hệ thức và vị trí điểm M.';
+            practiceFeedback.style.color = ok ? '#16a34a' : '#dc2626';
+            return;
+        }
+
+		const va = vectors.find(v => v.label === 'a');
+        const vb = vectors.find(v => v.label === 'b');
+        if (!va || !vb) {
+            practiceFeedback.textContent = '❌ Không tìm thấy vectơ đề bài!';
+            practiceFeedback.style.color = '#dc2626';
+            return;
+        }
+
+        const pa1 = points.find(p => p.id === va.startPointId);
+        const pa2 = points.find(p => p.id === va.endPointId);
+        const pb1 = points.find(p => p.id === vb.startPointId);
+        const pb2 = points.find(p => p.id === vb.endPointId);
+
+        if (!pa1 || !pa2 || !pb1 || !pb2) {
+            practiceFeedback.textContent = '❌ Lỗi dữ liệu điểm của vectơ đề bài!';
+            practiceFeedback.style.color = '#dc2626';
+            return;
+        }
+
+        const vecA = { x: pa2.x - pa1.x, y: pa2.y - pa1.y };
+        const vecB = { x: pb2.x - pb1.x, y: pb2.y - pb1.y };
+
+        let targetDx = 0;
+        let targetDy = 0;
+        if (practiceMode === 'sum') {
+            targetDx = vecA.x + vecB.x;
+            targetDy = vecA.y + vecB.y;
+        } else {
+            targetDx = vecA.x - vecB.x;
+            targetDy = vecA.y - vecB.y;
+        }
+
+        const userVectors = vectors.filter(v => v.type === 'user');
+        if (userVectors.length === 0) {
+            practiceFeedback.textContent = '❌ Bạn chưa vẽ vectơ kết quả!';
+            practiceFeedback.style.color = '#dc2626';
+            return;
+        }
+
+        // Lấy đúng vectơ cuối cùng học sinh vẽ
+        const lastUserVec = userVectors[userVectors.length - 1];
+
+        // Đổi màu vectơ chốt đáp án sang xanh thẫm (#15803d) để phân biệt trực quan
+        lastUserVec.color = '#15803d';
+        renderElements();
+
+        const up1 = points.find(p => p.id === lastUserVec.startPointId);
+        const up2 = points.find(p => p.id === lastUserVec.endPointId);
+
+        if (!up1 || !up2) {
+            practiceFeedback.textContent = '❌ Lỗi điểm của vectơ học sinh vẽ!';
+            practiceFeedback.style.color = '#dc2626';
+            return;
+        }
+
+        const userDx = up2.x - up1.x;
+        const userDy = up2.y - up1.y;
+
+        const correctOrigin = practiceMode === 'sum' ? (up1.x === pa1.x && up1.y === pa1.y) : true;
+
+        if (userDx === targetDx && userDy === targetDy && correctOrigin) {
+            practiceFeedback.textContent = '🎉 Chính xác tuyệt đối! Vectơ cuối cùng bạn vẽ là đáp án đúng.';
+            practiceFeedback.style.color = '#16a34a';
+        } else {
+            practiceFeedback.textContent = '❌ Chưa chính xác. Vectơ cuối cùng bạn vẽ chưa đúng hướng, độ dài hoặc điểm xuất phát!';
+            practiceFeedback.style.color = '#dc2626';
+        }
     }
-
-    const pa1 = points.find(p => p.id === va.startPointId);
-    const pa2 = points.find(p => p.id === va.endPointId);
-    const pb1 = points.find(p => p.id === vb.startPointId);
-    const pb2 = points.find(p => p.id === vb.endPointId);
-
-    if (!pa1 || !pa2 || !pb1 || !pb2) {
-        practiceFeedback.textContent = '❌ Lỗi dữ liệu điểm của vectơ đề bài!';
-        practiceFeedback.style.color = '#dc2626';
-        return;
-    }
-
-    // 1. Tính tọa độ thành phần của hai vectơ đề bài: vecA và vecB
-    const vecA = { x: pa2.x - pa1.x, y: pa2.y - pa1.y };
-    const vecB = { x: pb2.x - pb1.x, y: pb2.y - pb1.y };
-
-    // 2. Tính tọa độ thành phần vectơ mục tiêu (targetDx, targetDy)
-    let targetDx = 0;
-    let targetDy = 0;
-    if (practiceMode === 'sum') {
-        targetDx = vecA.x + vecB.x;
-        targetDy = vecA.y + vecB.y;
-    } else {
-        targetDx = vecA.x - vecB.x;
-        targetDy = vecA.y - vecB.y;
-    }
-
-    const userVectors = vectors.filter(v => v.type === 'user');
-    if (userVectors.length === 0) {
-        practiceFeedback.textContent = '❌ Bạn chưa vẽ vectơ kết quả!';
-        practiceFeedback.style.color = '#dc2626';
-        return;
-    }
-
-    // 3. Lấy vectơ cuối cùng học sinh vẽ
-    const lastUserVec = userVectors[userVectors.length - 1];
-
-    // Đổi màu vectơ chốt đáp án sang xanh thẫm (#15803d) để phân biệt trực quan
-    lastUserVec.color = '#15803d';
-    renderElements();
-
-    const up1 = points.find(p => p.id === lastUserVec.startPointId);
-    const up2 = points.find(p => p.id === lastUserVec.endPointId);
-
-    if (!up1 || !up2) {
-        practiceFeedback.textContent = '❌ Lỗi điểm của vectơ học sinh vẽ!';
-        practiceFeedback.style.color = '#dc2626';
-        return;
-    }
-
-    // 4. Tính tọa độ thành phần của vectơ do học sinh vẽ
-    const userDx = up2.x - up1.x;
-    const userDy = up2.y - up1.y;
-
-    // 5. So sánh tọa độ thành phần (Bỏ hẳn ràng buộc điểm gốc correctOrigin)
-    if (userDx === targetDx && userDy === targetDy) {
-        practiceFeedback.textContent = '🎉 Chính xác tuyệt đối! Vectơ cuối cùng bạn vẽ là đáp án đúng.';
-        practiceFeedback.style.color = '#16a34a';
-    } else {
-        practiceFeedback.textContent = '❌ Chưa chính xác. Vectơ cuối cùng bạn vẽ chưa đúng hướng hoặc độ dài!';
-        practiceFeedback.style.color = '#dc2626';
-    }
-}
-
 
     // Challenge Mode Logic
     function startNewChallenge() {
@@ -761,8 +1005,8 @@ document.addEventListener('DOMContentLoaded', () => {
     function generateVectorsForScenario() {
         const rand = Math.random();
         let caseType = 0;
-        if (rand < 0.4) caseType = 0;
-        else if (rand < 0.7) caseType = 1;
+        if (rand < 0.6) caseType = 0;
+        else if (rand < 0.8) caseType = 1;
         else caseType = 2;
 
         const ax = getRandomInt(-2, 1);
@@ -843,19 +1087,18 @@ document.addEventListener('DOMContentLoaded', () => {
         const userDx = up2.x - up1.x;
         const userDy = up2.y - up1.y;
 
-		const correctOrigin = currentChallenge.type === 'sum' ? ((up1.x === pa1.x && up1.y === pa1.y) || (up1.x === pb1.x && up1.y === pb1.y)): true;
+        const correctOrigin = currentChallenge.type === 'sum' ? (up1.x === pa1.x && up1.y === pa1.y) : true;
 
         student.count++;
-		if (userDx === targetDx && userDy === targetDy) {
-		    student.score += 1;
-		    challengeFeedback.textContent = '🎉 Chính xác! +1 điểm.';
-		    challengeFeedback.style.color = '#16a34a';
-		} else {
-		    student.score -= 1;
-		    challengeFeedback.textContent = '❌ Sai rồi! -1 điểm.';
-		    challengeFeedback.style.color = '#dc2626';
-		}
-
+        if (userDx === targetDx && userDy === targetDy && correctOrigin) {
+            student.score += 1;
+            challengeFeedback.textContent = '🎉 Chính xác! +1 điểm.';
+            challengeFeedback.style.color = '#16a34a';
+        } else {
+            student.score -= 1;
+            challengeFeedback.textContent = '❌ Sai rồi! -1 điểm.';
+            challengeFeedback.style.color = '#dc2626';
+        }
 
         dispScore.textContent = student.score;
         dispCount.textContent = student.count;
