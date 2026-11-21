@@ -67,11 +67,15 @@
 						<button class="mode-btn" data-mode="diff">Hiệu: $\\vec{u} = \\vec{a} - \\vec{b}$</button>
 						<button class="mode-btn" data-mode="scale">Nhân vectơ: $k\vec{a}$</button>
 						<button class="mode-btn" data-mode="pointM">Tìm điểm $M$</button>
+						<button class="mode-btn" data-mode="findK">Tìm tỷ lệ k</button>
 					</div>
                 </div>
+				<div id="find-k-container" style="display: none; margin-bottom: 12px;">
+					<label for="input-k-val" style="font-weight: 600; font-size: 14px;">Nhập giá trị $k$: </label>
+					<input type="number" id="input-k-val" step="any" placeholder="Ví dụ: -2 hoặc 0.5" style="width: 120px; padding: 6px 10px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 14px;">
+				</div>
 
                 <div class="panel-section">
-                    <button id="btn-new-practice" class="primary-btn">Bài mới</button>
 					<button id="btn-check-practice" class="success-btn">Kiểm tra kết quả</button>
                     <div id="practice-feedback" class="feedback-msg"></div>
 				</div>

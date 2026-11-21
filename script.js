@@ -12,10 +12,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Practice controls
     const modeBtns = document.querySelectorAll('.mode-btn');
-    const btnNewPractice = document.getElementById('btn-new-practice');
+    //const btnNewPractice = document.getElementById('btn-new-practice');
     const btnCheckPractice = document.getElementById('btn-check-practice');
     const practiceFeedback = document.getElementById('practice-feedback');
     const practiceInstruction = document.getElementById('practice-instruction');
+	const findKContainer = document.getElementById('find-k-container');
+	const inputKVal = document.getElementById('input-k-val');	
 
     // Challenge controls
     const formLogin = document.getElementById('form-login');
@@ -207,7 +209,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         });
 
-        btnNewPractice.addEventListener('click', resetPractice);
+        //btnNewPractice.addEventListener('click', resetPractice);
         btnCheckPractice.addEventListener('click', checkPracticeResult);
 
         formLogin.addEventListener('submit', (e) => {
@@ -549,29 +551,42 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 	function renderSegmentAB() {
-        if (practiceMode !== 'pointM') return;
+        if (practiceMode !== 'pointM' && practiceMode !== 'findK') return;
 
         const pointA = points.find(p => p.id === 'p_A');
         const pointB = points.find(p => p.id === 'p_B');
         if (!pointA || !pointB) return;
 
-        const segment = document.createElementNS(
-            'http://www.w3.org/2000/svg',
-            'line'
-        );
+        let startPt = pointA;
+        let endPt = pointB;
 
-        segment.setAttribute('x1', pointA.x * gridSize);
-        segment.setAttribute('y1', -pointA.y * gridSize);
-        segment.setAttribute('x2', pointB.x * gridSize);
-        segment.setAttribute('y2', -pointB.y * gridSize);
+        // Nếu là chế độ findK, xác định 2 điểm ngoài cùng trong 3 điểm (A, B, M) để đường thẳng nối liền cả 3 điểm
+        if (practiceMode === 'findK') {
+            const pointM = points.find(p => p.id === 'p_M');
+            if (pointM) {
+                const pts = [pointA, pointB, pointM];
+                if (pointA.x !== pointB.x) {
+                    pts.sort((a, b) => a.x - b.x);
+                } else {
+                    pts.sort((a, b) => a.y - b.y);
+                }
+                startPt = pts[0];
+                endPt = pts[2];
+            }
+        }
+
+        const segment = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        segment.setAttribute('x1', startPt.x * gridSize);
+        segment.setAttribute('y1', -startPt.y * gridSize);
+        segment.setAttribute('x2', endPt.x * gridSize);
+        segment.setAttribute('y2', -endPt.y * gridSize);
         segment.setAttribute('stroke', '#64748b');
         segment.setAttribute('stroke-width', '2.5');
         segment.setAttribute('stroke-linecap', 'round');
         segment.setAttribute('pointer-events', 'none');
-
-        // Không gắn marker-end: đây là đoạn thẳng, không phải vectơ.
         elementsGroup.appendChild(segment);
     }
+
 
 
     function renderElements() {
@@ -718,10 +733,19 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if (practiceMode === 'diff') {
             practiceInstruction.innerHTML = 'Hãy vẽ vectơ hiệu $\\vec{u}=\\vec{a}-\\vec{b}$. ';
         } else if (practiceMode === 'scale') {
-            practiceInstruction.innerHTML = `Cho vectơ $\\vec{a}$ và $k=${currentPractice.k}$. Hãy vẽ vectơ $k\\vec{a}$. Nhấp điểm đầu rồi điểm cuối của vectơ kết quả.`;
+            practiceInstruction.innerHTML = `Cho vectơ $\\vec{a}$ và $k=${currentPractice.k}$. Hãy vẽ vectơ ${currentPractice.k}$\\vec{a}$. Nhấp điểm đầu rồi điểm cuối của vectơ kết quả.`;
         } else if (practiceMode === 'pointM') {
             practiceInstruction.innerHTML = `Cho hai điểm $A,B$. Hãy xác định điểm $M$ thỏa mãn $\\overrightarrow{MA}+(${currentPractice.k})\\overrightarrow{MB}=\\vec{0}$. Nhấp một lần vào vị trí điểm $M$ trên lưới.`;
         }
+		// Hiện/ẩn khung nhập k theo chế độ
+		if (findKContainer) {
+			findKContainer.style.display = (practiceMode === 'findK') ? 'block' : 'none';
+		}
+
+		// Nội dung hướng dẫn học sinh
+		if (practiceMode === 'findK') {
+			practiceInstruction.innerHTML = 'Hãy quan sát và nhập hệ số tỷ lệ $k$ thỏa mãn $\\overrightarrow{MA} = k \\overrightarrow{MB}$.';
+		}
 
         if (typeof renderMathInElement !== 'undefined') {
             renderMathInElement(practiceInstruction, {
@@ -743,7 +767,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const startY = getRandomInt(-2, 1);
         const p1 = { id: 'p_scale_a1', x: startX, y: startY };
         const p2 = { id: 'p_scale_a2', x: startX + dx, y: startY + dy };
-        const kOptions = [-2, -1, 1, 2];
+        const kOptions = [-3,-2, -1, 1, 2,3];
         const k = kOptions[getRandomInt(0, kOptions.length - 1)];
 
         points.push(p1, p2);
@@ -756,7 +780,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function createPointMPractice() {
         // Chọn k và A, B sao cho M=(A+kB)/(1+k) có tọa độ nguyên.
-        const k = [-2, 1, 2][getRandomInt(0, 2)];
+		const kOptionsForM = [-3, -2, 1, 2, 3];
+		const k = kOptionsForM[getRandomInt(0, kOptionsForM.length - 1)];
+		
         const divisor = Math.abs(1 + k);
         const A = { x: getRandomInt(-2, 2), y: getRandomInt(-2, 2) };
         let dx = 0, dy = 0;
@@ -777,6 +803,37 @@ document.addEventListener('DOMContentLoaded', () => {
         currentPractice = { k, targetX: M.x, targetY: M.y };
     }
 
+
+	function createFindKPractice() {
+		// Danh sách hệ số k ngẫu nhiên (nguyên hoặc bán nguyên, khác 1)
+		const kOptionsForFindK = [-3, -2, -1, -0.5, 0.5,1.5, 2,2.5, 3];
+		const k = kOptionsForFindK[Math.floor(Math.random() * kOptionsForFindK.length)];
+		
+		// Tính toán tọa độ các điểm A, B, M chuẩn góc lưới ô vuông
+		const scaleFactor = (k % 1 !== 0) ? 2 : 1;
+		const divisor = Math.abs(1 - k) * scaleFactor;
+
+		const A = { x: getRandomInt(-2, 2), y: getRandomInt(-2, 2) };
+		let dx = 0, dy = 0;
+		while (dx === 0 && dy === 0) {
+			dx = getRandomInt(-2, 2) * divisor;
+			dy = getRandomInt(-2, 2) * divisor;
+		}
+		const B = { x: A.x + dx, y: A.y + dy };
+		const M = {
+			x: Math.round((A.x - k * B.x) / (1 - k)),
+			y: Math.round((A.y - k * B.y) / (1 - k))
+		};
+
+		points.push(
+			{ id: 'p_A', x: A.x, y: A.y, label: 'A' },
+			{ id: 'p_B', x: B.x, y: B.y, label: 'B' },
+			{ id: 'p_M', x: M.x, y: M.y, label: 'M', role: 'answer' }
+		);
+
+		currentPractice = { k };
+		if (inputKVal) inputKVal.value = '';
+	}
 
 
     function resetPractice() {
@@ -800,6 +857,13 @@ document.addEventListener('DOMContentLoaded', () => {
             renderElements();
             return;
         }
+		
+		if (practiceMode === 'findK') {
+			createFindKPractice();
+			updatePracticeInstructionText();
+			renderElements();
+			return;
+		}
 
 
         const randCase = Math.random();
@@ -865,31 +929,68 @@ document.addEventListener('DOMContentLoaded', () => {
 
         updatePracticeInstructionText();
         renderElements();
+		
     }
 
     // Logic kiểm tra: Lấy ĐÚNG vectơ vẽ cuối cùng, đổi màu xanh thẫm (#15803d) để phân biệt
     function checkPracticeResult() {
-        if (practiceMode === 'scale') {
-            const userVectors = vectors.filter(v => v.type === 'user');
-            if (userVectors.length === 0) {
-                practiceFeedback.textContent = '❌ Bạn chưa vẽ vectơ kết quả!';
-                practiceFeedback.style.color = '#dc2626';
-                return;
-            }
-            const answer = userVectors[userVectors.length - 1];
-            const start = points.find(p => p.id === answer.startPointId);
-            const end = points.find(p => p.id === answer.endPointId);
-            if (!start || !end) return;
-            answer.color = '#15803d';
-            renderElements();
-            const ok = end.x - start.x === currentPractice.targetDx &&
-                       end.y - start.y === currentPractice.targetDy;
-            practiceFeedback.textContent = ok
-                ? '🎉 Chính xác! Vectơ bạn vẽ bằng k·a.'
-                : '❌ Chưa chính xác. Hãy kiểm tra hướng và độ dài vectơ.';
-            practiceFeedback.style.color = ok ? '#16a34a' : '#dc2626';
-            return;
-        }
+		if (practiceMode === 'scale') {
+			const userVectors = vectors.filter(v => v.type === 'user');
+			if (userVectors.length === 0) {
+				practiceFeedback.textContent = '❌ Bạn chưa vẽ vectơ kết quả!';
+				practiceFeedback.style.color = '#dc2626';
+				return;
+			}
+			const answer = userVectors[userVectors.length - 1];
+			const start = points.find(p => p.id === answer.startPointId);
+			const end = points.find(p => p.id === answer.endPointId);
+			if (!start || !end) return;
+
+			answer.color = '#15803d';
+			renderElements();
+
+			const ok = end.x - start.x === currentPractice.targetDx &&
+					   end.y - start.y === currentPractice.targetDy;
+
+			// Dùng innerHTML và nháy ngược `` để truyền biến vào chuỗi KaTeX
+			practiceFeedback.innerHTML = ok
+				? `🎉 Chính xác! Vectơ bạn vẽ bằng $${currentPractice.k}\\vec{a}$.`
+				: '❌ Chưa chính xác. Hãy kiểm tra hướng và độ dài vectơ.';
+			practiceFeedback.style.color = ok ? '#16a34a' : '#dc2626';
+
+			// Đặt đoạn renderMathInElement TRƯỚC lệnh return
+			if (typeof renderMathInElement !== 'undefined') {
+				renderMathInElement(practiceFeedback, {
+					delimiters: [{left: '$', right: '$', display: false}],
+					throwOnError: false
+				});
+			}
+
+			return;
+		}
+
+		if (practiceMode === 'findK') {
+			const userVal = parseFloat(inputKVal.value);
+			if (isNaN(userVal)) {
+				practiceFeedback.textContent = '❌ Vui lòng nhập giá trị hệ số k!';
+				practiceFeedback.style.color = '#dc2626';
+				return;
+			}
+			const ok = Math.abs(userVal - currentPractice.k) < 0.01;
+			practiceFeedback.innerHTML = ok
+				? `🎉 Chính xác! $\\overrightarrow{MA} = ${currentPractice.k}\\overrightarrow{MB}$.`
+				: `❌ Chưa chính xác. Tỷ lệ đúng là $k = ${currentPractice.k}$.`;
+			practiceFeedback.style.color = ok ? '#16a34a' : '#dc2626';
+
+			if (typeof renderMathInElement !== 'undefined') {
+				renderMathInElement(practiceFeedback, {
+					delimiters: [{left: '$', right: '$', display: false}],
+					throwOnError: false
+				});
+			}
+			return;
+		}
+
 
         if (practiceMode === 'pointM') {
             const answer = points.find(p => p.id === 'p_user_M');
