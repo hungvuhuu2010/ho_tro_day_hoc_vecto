@@ -760,23 +760,30 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function createScalePractice() {
-        // Vectơ a có thành phần nguyên nhỏ; k được chọn phù hợp để k*a vẫn gọn trên lưới.
-        const dx = getRandomInt(1, 3) * (Math.random() < 0.5 ? -1 : 1);
-        const dy = getRandomInt(1, 3) * (Math.random() < 0.5 ? -1 : 1);
-        const startX = getRandomInt(-2, 1);
-        const startY = getRandomInt(-2, 1);
-        const p1 = { id: 'p_scale_a1', x: startX, y: startY };
-        const p2 = { id: 'p_scale_a2', x: startX + dx, y: startY + dy };
-        const kOptions = [-3,-2, -1, 1, 2,3];
-        const k = kOptions[getRandomInt(0, kOptions.length - 1)];
+		// Tập hệ số k bao gồm cả số bán nguyên (-1.5, -0.5, 0.5, 1.5)
+		const kOptions = [-3, -2, -3/2, -1, -1/2, 1/2, 1, 3/2, 2, 3];
+		const k = kOptions[getRandomInt(0, kOptions.length - 1)];
 
-        points.push(p1, p2);
-        vectors.push({
-            id: 'v_a', startPointId: p1.id, endPointId: p2.id,
-            type: 'given', color: '#2563eb', label: 'a'
-        });
-        currentPractice = { k, targetDx: k * dx, targetDy: k * dy };
-    }
+		// Nếu k có phần thập phân (.5), dx và dy bắt buộc phải nhân 2 (số chẵn)
+		const step = (k % 1 !== 0) ? 2 : 1;
+		const maxMultiplier = (step === 2) ? 2 : 3;
+
+		const dx = getRandomInt(1, maxMultiplier) * step * (Math.random() < 0.5 ? -1 : 1);
+		const dy = getRandomInt(1, maxMultiplier) * step * (Math.random() < 0.5 ? -1 : 1);
+
+		const startX = getRandomInt(-2, 1);
+		const startY = getRandomInt(-2, 1);
+		const p1 = { id: 'p_scale_a1', x: startX, y: startY };
+		const p2 = { id: 'p_scale_a2', x: startX + dx, y: startY + dy };
+
+		points.push(p1, p2);
+		vectors.push({
+			id: 'v_a', startPointId: p1.id, endPointId: p2.id,
+			type: 'given', color: '#2563eb', label: 'a'
+		});
+		currentPractice = { k, targetDx: Math.round(k * dx), targetDy: Math.round(k * dy) };
+	}
+
 
     function createPointMPractice() {
         // Chọn k và A, B sao cho M=(A+kB)/(1+k) có tọa độ nguyên.
